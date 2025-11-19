@@ -26,13 +26,17 @@ const App: React.FC = () => {
   
   // --- New State for Dialogue & Results ---
   const [activeDialogue, setActiveDialogue] = useState<{
-    agent: AgentMetadata;
+    agentId: string;
     dialogue: string;
-    position: { x: number; y: number };
   } | null>(null);
   const [taskResults, setTaskResults] = useState<AgentTaskResult[]>([]);
   const [showResultsPage, setShowResultsPage] = useState(false);
   const [agentPositions, setAgentPositions] = useState<Record<string, { x: number; y: number }>>({});
+
+  // --- Memoized callback for closing dialogue ---
+  const handleCloseDialogue = useCallback(() => {
+    setActiveDialogue(null);
+  }, []);
 
   // --- Initialization: Check API Status ---
   useEffect(() => {
@@ -63,8 +67,8 @@ const App: React.FC = () => {
     setLogs(prev => [...prev.slice(-99), newLog]); // Keep last 100
   };
 
-  // --- Helper: Show random dialogue ---
-  const showAgentDialogue = useCallback((agentId: string) => {
+  // --- Helper: Show contextual dialogue ---
+  const showAgentDialogue = useCallback((agentId: string, context?: 'greeting' | 'analyzing' | 'negotiating' | 'success' | 'idle') => {
     const agent = AGENTS.find(a => a.id === agentId);
     if (!agent || !agent.personality) {
       console.warn(`Agent ${agentId} not found or has no personality`);
@@ -72,37 +76,36 @@ const App: React.FC = () => {
     }
 
     const dialogues = agent.personality.dialogues;
-    const randomDialogue = dialogues[Math.floor(Math.random() * dialogues.length)];
+    let selectedDialogue: string;
     
-    // Get agent's node position or use fallback
-    const nodePos = agentPositions[agentId];
-    let x, y;
-    
-    if (nodePos) {
-      // Position dialogue to the right of the agent avatar
-      const sidebarWidth = 320; // Left sidebar width
-      const agentNodeWidth = 128; // Agent node width
-      
-      // Calculate position to the right of agent
-      x = nodePos.x + sidebarWidth + agentNodeWidth + 15; // 15px spacing from agent
-      y = nodePos.y + 30; // Vertically centered with agent sprite
+    // Contextual dialogue selection for more natural conversation
+    if (context === 'greeting') {
+      // Use first dialogue as greeting
+      selectedDialogue = dialogues[0];
+    } else if (context === 'analyzing') {
+      // Prefer middle dialogues for analytical moments
+      const analyticalIndex = Math.floor(dialogues.length / 3) + Math.floor(Math.random() * 2);
+      selectedDialogue = dialogues[analyticalIndex] || dialogues[Math.floor(Math.random() * dialogues.length)];
+    } else if (context === 'success') {
+      // Use later dialogues for success moments
+      const successIndex = Math.floor(dialogues.length * 0.6) + Math.floor(Math.random() * 2);
+      selectedDialogue = dialogues[successIndex] || dialogues[Math.floor(Math.random() * dialogues.length)];
     } else {
-      // Fallback to center area if position not yet tracked
-      x = window.innerWidth / 2;
-      y = window.innerHeight / 3;
+      // Random for idle chatter
+      selectedDialogue = dialogues[Math.floor(Math.random() * dialogues.length)];
     }
     
-    console.log(`🗨️ ${agent.name}: "${randomDialogue}" at (${Math.round(x)}, ${Math.round(y)})`);
+    console.log(`🗨️ ${agent.name}: "${selectedDialogue}"`);
     
     setActiveDialogue({
-      agent,
-      dialogue: randomDialogue,
-      position: { x, y }
+      agentId: agentId,
+      dialogue: selectedDialogue
     });
 
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => setActiveDialogue(null), 5000);
-  }, [agentPositions]);
+    // Auto-dismiss after 5-7 seconds (varied for natural feel)
+    const dismissTime = 5000 + Math.random() * 2000;
+    setTimeout(() => setActiveDialogue(null), dismissTime);
+  }, []);
 
   const toggleAgent = useCallback((id: string) => {
     const isCurrentlyActive = activeAgents.includes(id);
@@ -118,7 +121,7 @@ const App: React.FC = () => {
     
     // Show greeting dialogue when activating
     if (isActivating && agent?.personality) {
-      setTimeout(() => showAgentDialogue(id), 1000);
+      setTimeout(() => showAgentDialogue(id, 'greeting'), 1000);
     }
   }, [activeAgents, showAgentDialogue]);
 
@@ -186,9 +189,9 @@ const App: React.FC = () => {
         });
       }
 
-      // Show random dialogue after completing intelligence fetch
+      // Show contextual dialogue after completing intelligence fetch
       if (Math.random() < 0.8) { // 80% chance
-        showAgentDialogue(agentId);
+        showAgentDialogue(agentId, 'success');
       }
 
       setAgentStatuses(prev => ({ ...prev, [agentId]: 'idle' }));
@@ -242,7 +245,7 @@ const App: React.FC = () => {
         
         // Show dialogue from sender (70% chance)
         if (Math.random() < 0.7) {
-          showAgentDialogue(senderId);
+          showAgentDialogue(senderId, 'negotiating');
         }
 
         setTimeout(() => {
@@ -331,7 +334,7 @@ const App: React.FC = () => {
           
           // Show Commander dialogue
           if (Math.random() < 0.8) {
-            showAgentDialogue('a0');
+            showAgentDialogue('a0', 'idle');
           }
         }
       }
@@ -400,6 +403,8 @@ const App: React.FC = () => {
                 activeAgents={activeAgents}
                 streamingEdges={streamingEdges}
                 onNodePositionsChange={setAgentPositions}
+                activeDialogue={activeDialogue}
+                onCloseDialogue={handleCloseDialogue}
              />
           </div>
           
@@ -416,16 +421,6 @@ const App: React.FC = () => {
         />
 
       </div>
-      
-      {/* Floating Dialogue Popup */}
-      {activeDialogue && (
-        <AgentDialogue
-          agent={activeDialogue.agent}
-          dialogue={activeDialogue.dialogue}
-          position={activeDialogue.position}
-          onClose={() => setActiveDialogue(null)}
-        />
-      )}
     </div>
   );
 };

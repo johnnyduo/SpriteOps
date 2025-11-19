@@ -16,9 +16,9 @@ import ReactFlow, {
 } from 'reactflow';
 import { AgentMetadata } from '../types';
 
-// --- Custom Agent Node ---
-const AgentNode = ({ data }: NodeProps) => {
-  const { agent } = data;
+// --- Custom Agent Node Component (defined outside to prevent re-creation) ---
+const AgentNode = React.memo(({ data }: NodeProps) => {
+  const { agent, dialogue, onCloseDialogue } = data;
   const spriteUrl = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${agent.spriteSeed}&backgroundColor=transparent`;
 
   return (
@@ -26,6 +26,41 @@ const AgentNode = ({ data }: NodeProps) => {
       relative w-32 flex flex-col items-center 
       ${data.isStreaming ? 'filter drop-shadow-[0_0_10px_#43FF4D]' : ''}
     `}>
+      {/* Dialogue bubble - positioned northeast of agent */}
+      {dialogue && (
+        <div className="absolute left-[70%] bottom-full mb-2 z-50 animate-fade-in pointer-events-auto">
+          <div className="relative bg-gray-800/95 border border-[#39ff14] rounded-lg p-2.5 shadow-lg w-[200px] animate-bounce-in" style={{ boxShadow: '0 0 15px rgba(57, 255, 20, 0.4)' }}>
+            {/* Speech bubble arrow - pointing down-left to agent */}
+            <div className="absolute left-0 bottom-0 transform translate-y-full -translate-x-1 w-0 h-0 border-t-[10px] border-r-[10px] border-t-gray-800 border-r-transparent" style={{ filter: 'drop-shadow(-2px 2px 2px rgba(0,0,0,0.3))' }}></div>
+            <div className="absolute left-0 bottom-0 transform translate-y-[9px] -translate-x-0.5 w-0 h-0 border-t-[8px] border-r-[8px] border-t-[#39ff14] border-r-transparent"></div>
+            
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                    agent.status === 'idle' ? 'bg-gray-400' :
+                    agent.status === 'negotiating' ? 'bg-yellow-400' :
+                    agent.status === 'streaming' ? 'bg-[#39ff14]' :
+                    'bg-red-400'
+                  }`}></div>
+                  <span className="text-[#39ff14] font-bold text-xs truncate">{agent.name}</span>
+                </div>
+                <p className="text-white text-xs leading-relaxed">{dialogue}</p>
+              </div>
+              <button
+                onClick={onCloseDialogue}
+                className="text-gray-400 hover:text-[#39ff14] transition-colors flex-shrink-0 ml-1"
+                aria-label="Close dialogue"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <Handle type="target" position={Position.Top} className="!bg-neon-green !w-3 !h-3 !border-none" />
       
       <div className="relative w-20 h-20 mb-2">
@@ -60,17 +95,47 @@ const AgentNode = ({ data }: NodeProps) => {
       )}
     </div>
   );
-};
+});
+
+// Define nodeTypes outside component to prevent re-creation (frozen for stability)
+const nodeTypes = Object.freeze({ agentNode: AgentNode });
+
+// Define edgeTypes outside component (even if empty, it prevents warning)
+const edgeTypes = Object.freeze({});
+
+// Define proOptions outside component
+const proOptions = Object.freeze({ hideAttribution: true });
+
+// Define default edge options outside component
+const defaultEdgeOptions = Object.freeze({
+  animated: true,
+  type: 'default' as const,
+  style: Object.freeze({ 
+    stroke: '#43FF4D',
+    strokeWidth: 3,
+    strokeDasharray: '5,5',
+  }),
+  markerEnd: Object.freeze({
+    type: MarkerType.ArrowClosed,
+    width: 20,
+    height: 20,
+    color: '#43FF4D',
+  }),
+});
 
 interface FlowCanvasProps {
   agents: AgentMetadata[];
   activeAgents: string[];
   streamingEdges: string[]; // list of edge IDs that are streaming
   onNodePositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
+  activeDialogue?: { agentId: string; dialogue: string } | null;
+  onCloseDialogue?: () => void;
 }
 
-const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streamingEdges, onNodePositionsChange }) => {
-  const nodeTypes = useMemo(() => ({ agentNode: AgentNode }), []);
+const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streamingEdges, onNodePositionsChange, activeDialogue, onCloseDialogue }) => {
+  // Memoize nodeTypes and edgeTypes inside component as additional safety
+  const memoizedNodeTypes = useMemo(() => nodeTypes, []);
+  const memoizedEdgeTypes = useMemo(() => edgeTypes, []);
 
   // Convert active agents to Nodes
   const initialNodes: Node[] = useMemo(() => {
@@ -83,7 +148,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
         data: { 
           agent,
           isStreaming: false, // Will be updated dynamically via simulation
-          currentAction: 'Idling...'
+          currentAction: 'Idling...',
+          dialogue: null, // Will hold active dialogue
+          onCloseDialogue: () => {}
         },
       };
     });
@@ -95,19 +162,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({ 
       ...params, 
-      animated: true, 
-      type: 'default', // Use default for smooth bezier curves
-      style: { 
-        stroke: '#43FF4D',
-        strokeWidth: 3,
-        strokeDasharray: '5,5',
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: 20,
-        height: 20,
-        color: '#43FF4D',
-      },
+      ...defaultEdgeOptions,
     }, eds)),
     [setEdges]
   );
@@ -124,7 +179,10 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
           data: {
             ...node.data,
             isStreaming: isSource || isTarget,
-            currentAction: isSource ? 'Streaming x402...' : isTarget ? 'Receiving Service' : 'Idling...'
+            currentAction: isSource ? 'Streaming x402...' : isTarget ? 'Receiving Service' : 'Idling...',
+            // Preserve dialogue and callback
+            dialogue: node.data.dialogue,
+            onCloseDialogue: node.data.onCloseDialogue
           }
         };
       })
@@ -132,6 +190,12 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
 
     setEdges(eds => eds.map(e => {
       const isStreaming = streamingEdges.includes(e.id);
+      
+      // Only update if streaming state changed
+      if (e.animated === isStreaming && e.className === (isStreaming ? 'streaming-flow' : '')) {
+        return e;
+      }
+      
       return {
         ...e,
         animated: isStreaming,
@@ -185,17 +249,33 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
     }
   }, [nodes, onNodePositionsChange]);
 
+  // Update node data with active dialogue
+  useEffect(() => {
+    setNodes(nds => 
+      nds.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          dialogue: activeDialogue?.agentId === node.id ? activeDialogue.dialogue : null,
+          onCloseDialogue: onCloseDialogue || (() => {})
+        }
+      }))
+    );
+  }, [activeDialogue, onCloseDialogue, setNodes]);
+
   return (
     <div className="w-full h-full bg-[#050505] relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        nodeTypes={nodeTypes}
+        nodeTypes={memoizedNodeTypes}
+        edgeTypes={memoizedEdgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         fitView
         className="bg-black"
+        proOptions={proOptions}
       >
         <Background 
             variant={BackgroundVariant.Dots} 
@@ -218,4 +298,16 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
   );
 };
 
-export default FlowCanvas;
+// Memoize with custom comparison to prevent unnecessary re-renders
+export default React.memo(FlowCanvas, (prevProps, nextProps) => {
+  return (
+    prevProps.agents === nextProps.agents &&
+    prevProps.activeAgents.length === nextProps.activeAgents.length &&
+    prevProps.activeAgents.every((id, i) => id === nextProps.activeAgents[i]) &&
+    prevProps.streamingEdges.length === nextProps.streamingEdges.length &&
+    prevProps.streamingEdges.every((id, i) => id === nextProps.streamingEdges[i]) &&
+    prevProps.activeDialogue === nextProps.activeDialogue &&
+    prevProps.onCloseDialogue === nextProps.onCloseDialogue &&
+    prevProps.onNodePositionsChange === nextProps.onNodePositionsChange
+  );
+});

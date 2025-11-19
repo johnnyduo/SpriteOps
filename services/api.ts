@@ -1,10 +1,15 @@
 // API Service Layer for SPRITEOPS
 // Integrates: Gemini AI, TwelveData, News API, and Hedera Mirror Node
 
+import { GoogleGenAI } from "@google/genai";
+
 const GEMINI_API_KEY = (import.meta as any).env?.GEMINI_API_KEY || '';
 const TWELVEDATA_API_KEY = (import.meta as any).env?.TWELVEDATA_API_KEY || '';
 const NEWS_API_KEY = (import.meta as any).env?.NEWS_API_KEY || '';
 const HEDERA_MIRROR_NODE_URL = (import.meta as any).env?.HEDERA_MIRROR_NODE_URL || 'https://testnet.mirrornode.hedera.com/api/v1';
+
+// Initialize Gemini AI
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 // ===========================
 // GEMINI AI SERVICE
@@ -30,31 +35,14 @@ export const geminiService = {
     }
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{ text: request.prompt }]
-            }],
-            generationConfig: {
-              temperature: request.temperature || 0.7,
-              maxOutputTokens: request.maxTokens || 1024,
-            }
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response';
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: request.prompt,
+      });
       
-      return { text, candidates: data.candidates };
+      const text = response.text || 'No response';
+      
+      return { text };
     } catch (error) {
       console.error('Gemini API error:', error);
       return { 
