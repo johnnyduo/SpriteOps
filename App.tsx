@@ -11,19 +11,49 @@ import { AgentResultsPage } from './components/AgentResultsPage';
 import { ModeControl } from './components/ModeControl';
 import { orchestrator, cryptoService, newsService, hederaService } from './services/api';
 import { testAPIs } from './testAPIs';
+import { useMintAgent, useDeactivateAgent } from './hooks/useAgentContract';
+import { useAccount } from 'wagmi';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import './toast-custom.css';
 
 // Make test function available in browser console
 if (typeof window !== 'undefined') {
   (window as any).testAPIs = testAPIs;
 }
 
+// Helper to get Hedera testnet explorer URL
+const getHederaExplorerUrl = (txHash: string) => {
+  return `https://hashscan.io/testnet/transaction/${txHash}`;
+};
+
 const App: React.FC = () => {
+  // --- Wallet & Contract Hooks ---
+  const { address, isConnected } = useAccount();
+  const { mintAgent, isPending: isMinting, isConfirming, isSuccess: mintSuccess, hash, receipt } = useMintAgent();
+  const { deactivateAgent, isPending: isDeactivating, isConfirming: isDeactivateConfirming, isSuccess: deactivateSuccess, hash: deactivateHash } = useDeactivateAgent();
+  
   // --- State ---
-  const [activeAgents, setActiveAgents] = useState<string[]>([]);
+  const [activeAgents, setActiveAgents] = useState<string[]>(() => {
+    const stored = localStorage.getItem('activeAgents');
+    return stored ? JSON.parse(stored) : [];
+  });
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogMessage[]>(INITIAL_LOGS);
   const [streamingEdges, setStreamingEdges] = useState<string[]>([]);
   const [agentStatuses, setAgentStatuses] = useState<Record<string, 'idle' | 'negotiating' | 'streaming' | 'offline'>>({});
+  const [mintingAgents, setMintingAgents] = useState<Set<string>>(new Set());
+  const [deactivatingAgents, setDeactivatingAgents] = useState<Set<string>>(new Set());
+  const [onChainAgents, setOnChainAgents] = useState<Record<string, bigint>>(() => {
+    const stored = localStorage.getItem('onChainAgents');
+    return stored ? JSON.parse(stored, (key, value) => {
+      // Convert string back to bigint for values that look like numbers
+      if (typeof value === 'string' && /^\d+$/.test(value)) {
+        return BigInt(value);
+      }
+      return value;
+    }) : {};
+  }); // agentId -> tokenId
   
   // --- New State for Dialogue & Results ---
   const [activeDialogue, setActiveDialogue] = useState<{
@@ -61,6 +91,119 @@ const App: React.FC = () => {
     
     checkAPIs();
   }, []);
+
+  // --- Track mint success and extract tokenId from event ---
+  useEffect(() => {
+    if (mintSuccess && hash && receipt) {
+      const explorerUrl = getHederaExplorerUrl(hash);
+      
+      // Show toast notification
+      toast.success(
+        <div>
+          <div className="font-bold">✅ Agent Minted Successfully!</div>
+          <a 
+            href={explorerUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-neon-green hover:underline text-sm"
+          >
+            View on Hedera Explorer →
+          </a>
+          <div className="text-xs text-gray-400 mt-1 truncate">Tx: {hash.slice(0, 10)}...{hash.slice(-8)}</div>
+        </div>,
+        { autoClose: 8000 }
+      );
+      
+      addLog('SYSTEM', `⛓️ Agent minted successfully! Tx: ${hash.slice(0, 10)}...`);
+      
+      // Extract tokenId from AgentCreated event in transaction logs
+      try {
+        // Find the AgentCreated event in the logs
+        const agentCreatedLog = receipt.logs.find((log: any) => {
+          // AgentCreated event signature: keccak256("AgentCreated(uint256,address,string,string,uint256)")
+          return log.topics && log.topics.length > 0;
+        });
+        
+        if (agentCreatedLog && agentCreatedLog.topics && agentCreatedLog.topics[1]) {
+          // First indexed parameter (topics[1]) is the agentId (tokenId)
+          const tokenId = BigInt(agentCreatedLog.topics[1]);
+          
+          // Find which agent was being minted and store its tokenId
+          mintingAgents.forEach(agentId => {
+            const agent = AGENTS.find(a => a.id === agentId);
+            setOnChainAgents(prev => ({
+              ...prev,
+              [agentId]: tokenId
+            }));
+            addLog('SYSTEM', `🎫 ${agent?.name} received tokenId: ${tokenId.toString()}`);
+          });
+        }
+      } catch (error) {
+        console.error('Error extracting tokenId from receipt:', error);
+        // Fallback: use timestamp-based ID
+        mintingAgents.forEach(agentId => {
+          const tokenId = BigInt(Date.now());
+          setOnChainAgents(prev => ({
+            ...prev,
+            [agentId]: tokenId
+          }));
+        });
+      }
+      
+      // Clear minting state
+      setMintingAgents(new Set());
+    }
+  }, [mintSuccess, hash, receipt, mintingAgents]);
+
+  // --- Track mint confirmation ---
+  useEffect(() => {
+    if (isConfirming) {
+      addLog('SYSTEM', '⏳ Waiting for blockchain confirmation...');
+    }
+  }, [isConfirming]);
+
+  // --- Track deactivate confirmation ---
+  useEffect(() => {
+    if (isDeactivateConfirming) {
+      addLog('SYSTEM', '⏳ Waiting for deactivation confirmation...');
+    }
+  }, [isDeactivateConfirming]);
+
+  // --- Track deactivate success ---
+  useEffect(() => {
+    if (deactivateSuccess && deactivateHash) {
+      const explorerUrl = getHederaExplorerUrl(deactivateHash);
+      
+      // Show toast notification
+      toast.info(
+        <div>
+          <div className="font-bold">🔻 Agent Deactivated On-Chain</div>
+          <a 
+            href={explorerUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-neon-green hover:underline text-sm"
+          >
+            View on Hedera Explorer →
+          </a>
+          <div className="text-xs text-gray-400 mt-1 truncate">Tx: {deactivateHash.slice(0, 10)}...{deactivateHash.slice(-8)}</div>
+        </div>,
+        { autoClose: 8000 }
+      );
+      
+      addLog('SYSTEM', `⛓️ Agent deactivated on-chain! Tx: ${deactivateHash.slice(0, 10)}...`);
+      // Clear deactivating state
+      setDeactivatingAgents(new Set());
+    }
+  }, [deactivateSuccess, deactivateHash]);
+
+  // --- Persist onChainAgents to localStorage ---
+  useEffect(() => {
+    localStorage.setItem('onChainAgents', JSON.stringify(onChainAgents, (key, value) => {
+      // Convert bigint to string for JSON serialization
+      return typeof value === 'bigint' ? value.toString() : value;
+    }));
+  }, [onChainAgents]);
 
   // --- Auto Mode: Activate Commander when mode switches ---
   useEffect(() => {
@@ -129,7 +272,7 @@ const App: React.FC = () => {
     setTimeout(() => setActiveDialogue(null), dismissTime);
   }, []);
 
-  const toggleAgent = useCallback((id: string) => {
+  const toggleAgent = useCallback(async (id: string) => {
     // In auto mode, only Commander can be manually toggled, others are controlled by Commander
     if (operationMode === 'auto' && id !== 'a0') {
       addLog('SYSTEM', '⚠️ Auto mode active: Only Commander can control agent activation');
@@ -137,21 +280,102 @@ const App: React.FC = () => {
     }
     
     const isCurrentlyActive = activeAgents.includes(id);
-    
-    setActiveAgents(prev => 
-      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
-    );
-    
-    // Add log
     const agent = AGENTS.find(a => a.id === id);
     const isActivating = !isCurrentlyActive;
+    const agentTokenId = onChainAgents[id];
+    
+    // If activating and not on-chain yet, require wallet connection
+    if (isActivating && !agentTokenId && !isConnected) {
+      addLog('SYSTEM', '🔌 Please connect wallet to register agent on-chain');
+      return;
+    }
+    
+    // If deactivating an on-chain agent, require wallet connection for deactivation tx
+    if (!isActivating && agentTokenId && !isConnected) {
+      addLog('SYSTEM', '🔌 Please connect wallet to deactivate agent on-chain');
+      return;
+    }
+    
+    // If activating and wallet connected, mint agent on-chain
+    if (isActivating && isConnected && agent && !agentTokenId) {
+      addLog('SYSTEM', `📝 Registering ${agent.name} on-chain...`);
+      setMintingAgents(prev => new Set(prev).add(id));
+      
+      try {
+        await mintAgent({
+          name: agent.name,
+          role: agent.role,
+          description: agent.description || '',
+          capabilities: agent.capabilities || []
+        });
+        
+        addLog('SYSTEM', `✅ ${agent.name} registered on-chain! Tx: ${hash?.slice(0, 10)}...`);
+      } catch (error: any) {
+        const errorMsg = error.message || 'User rejected transaction';
+        addLog('SYSTEM', `❌ On-chain registration failed: ${errorMsg}`);
+        
+        toast.error(
+          <div>
+            <div className="font-bold">❌ Minting Failed</div>
+            <div className="text-sm">{agent.name}: {errorMsg}</div>
+          </div>,
+          { autoClose: 5000 }
+        );
+        
+        setMintingAgents(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        return; // Don't activate if minting failed
+      }
+    }
+    
+    // If deactivating an on-chain agent, call deactivateAgent
+    if (!isActivating && isConnected && agent && agentTokenId) {
+      addLog('SYSTEM', `🔻 Deactivating ${agent.name} on-chain...`);
+      setDeactivatingAgents(prev => new Set(prev).add(id));
+      
+      try {
+        await deactivateAgent(agentTokenId);
+        addLog('SYSTEM', `✅ ${agent.name} deactivated on-chain! Tx: ${deactivateHash?.slice(0, 10)}...`);
+      } catch (error: any) {
+        const errorMsg = error.message || 'User rejected transaction';
+        addLog('SYSTEM', `❌ On-chain deactivation failed: ${errorMsg}`);
+        
+        toast.error(
+          <div>
+            <div className="font-bold">❌ Deactivation Failed</div>
+            <div className="text-sm">{agent.name}: {errorMsg}</div>
+          </div>,
+          { autoClose: 5000 }
+        );
+        
+        setDeactivatingAgents(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        return; // Don't deactivate if on-chain deactivation failed
+      }
+    }
+    
+    // Update active agents state
+    setActiveAgents(prev => {
+      const updated = prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id];
+      // Persist to localStorage
+      localStorage.setItem('activeAgents', JSON.stringify(updated));
+      return updated;
+    });
+    
+    // Add log
     addLog('SYSTEM', `Agent ${agent?.name} ${isActivating ? 'ACTIVATED' : 'DEACTIVATED'} on grid.`);
     
     // Show greeting dialogue when activating
     if (isActivating && agent?.personality) {
       setTimeout(() => showAgentDialogue(id, 'greeting'), 1000);
     }
-  }, [activeAgents, showAgentDialogue, operationMode]);
+  }, [activeAgents, showAgentDialogue, operationMode, isConnected, mintAgent, deactivateAgent, hash, deactivateHash, onChainAgents]);
 
   // --- Helper: Add task result ---
   const addTaskResult = useCallback((result: Omit<AgentTaskResult, 'timestamp'>) => {
@@ -173,7 +397,7 @@ const App: React.FC = () => {
       const intelligence = await orchestrator.getAgentIntelligence(agent.role, 'ETH/USD');
       
       // Log market data
-      if (intelligence.marketData) {
+      if (intelligence.marketData && intelligence.marketData.price) {
         addLog('SYSTEM', `[${agent.name}] Market Analysis: ETH at $${intelligence.marketData.price.toFixed(2)}`);
         
         // Add market research result
@@ -183,8 +407,10 @@ const App: React.FC = () => {
           taskType: 'market_research',
           status: 'success',
           data: intelligence.marketData,
-          summary: `Market analysis completed: ETH at $${intelligence.marketData.price.toFixed(2)}, 24h change: ${intelligence.marketData.change24h.toFixed(2)}%`
+          summary: `Market analysis completed: ETH at $${intelligence.marketData.price.toFixed(2)}, 24h change: ${(intelligence.marketData.change24h || 0).toFixed(2)}%`
         });
+      } else {
+        addLog('SYSTEM', `[${agent.name}] Market data temporarily unavailable`);
       }
 
       // Log AI insight
@@ -223,8 +449,20 @@ const App: React.FC = () => {
       }
 
       setAgentStatuses(prev => ({ ...prev, [agentId]: 'idle' }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Intelligence fetch error:', error);
+      const errorMessage = error?.message || 'Service temporarily unavailable';
+      addLog('SYSTEM', `⚠️ ${agent.name}: ${errorMessage}`);
+      
+      // Add error task result
+      addTaskResult({
+        agentId: agent.id,
+        agentName: agent.name,
+        taskType: 'market_research',
+        status: 'error',
+        summary: `Intelligence fetch error: ${errorMessage}`
+      });
+      
       setAgentStatuses(prev => ({ ...prev, [agentId]: 'idle' }));
     }
   }, [addTaskResult, showAgentDialogue]);
@@ -431,6 +669,9 @@ const App: React.FC = () => {
                 onClick={() => setSelectedAgentId(agent.id)}
                 status={agentStatuses[agent.id]}
                 isAutoMode={operationMode === 'auto'}
+                isMinting={mintingAgents.has(agent.id)}
+                isDeactivating={deactivatingAgents.has(agent.id)}
+                isOnChain={!!onChainAgents[agent.id]}
               />
             ))}
           </div>
@@ -505,6 +746,23 @@ const App: React.FC = () => {
         />
 
       </div>
+      
+      {/* Toast Notifications */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+        style={{
+          marginTop: '60px'
+        }}
+      />
     </div>
   );
 };

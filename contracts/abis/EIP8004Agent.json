@@ -1,0 +1,95 @@
+[
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "agentId", "type": "uint256" }
+    ],
+    "name": "getAgentData",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "string", "name": "name", "type": "string" },
+          { "internalType": "string", "name": "role", "type": "string" },
+          { "internalType": "string", "name": "metadataURI", "type": "string" },
+          { "internalType": "string", "name": "apiURI", "type": "string" },
+          { "internalType": "uint256", "name": "fee", "type": "uint256" },
+          { "internalType": "enum IEIP8004.FeeModel", "name": "feeModel", "type": "uint8" },
+          { "internalType": "enum IEIP8004.AgentStatus", "name": "status", "type": "uint8" },
+          { "internalType": "uint64", "name": "trustScore", "type": "uint64" },
+          { "internalType": "uint64", "name": "createdAt", "type": "uint64" },
+          { "internalType": "uint64", "name": "lastActiveAt", "type": "uint64" },
+          { "internalType": "string[]", "name": "capabilities", "type": "string[]" }
+        ],
+        "internalType": "struct IEIP8004.AgentData",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "agentId", "type": "uint256" }
+    ],
+    "name": "isAgentActive",
+    "outputs": [
+      { "internalType": "bool", "name": "", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "name", "type": "string" },
+      { "internalType": "string", "name": "role", "type": "string" },
+      { "internalType": "string", "name": "metadataURI", "type": "string" },
+      { "internalType": "string", "name": "apiURI", "type": "string" },
+      { "internalType": "uint256", "name": "fee", "type": "uint256" },
+      { "internalType": "enum IEIP8004.FeeModel", "name": "feeModel", "type": "uint8" },
+      { "internalType": "string[]", "name": "capabilities", "type": "string[]" }
+    ],
+    "name": "mintAgent",
+    "outputs": [
+      { "internalType": "uint256", "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "agentId", "type": "uint256" }
+    ],
+    "name": "ownerOf",
+    "outputs": [
+      { "internalType": "address", "name": "", "type": "address" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalAgents",
+    "outputs": [
+      { "internalType": "uint256", "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "agentId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "owner", "type": "address" },
+      { "indexed": false, "internalType": "string", "name": "name", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "role", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "fee", "type": "uint256" }
+    ],
+    "name": "AgentCreated",
+    "type": "event"
+  }
+]

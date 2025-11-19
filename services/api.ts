@@ -43,10 +43,21 @@ export const geminiService = {
       const text = response.text || 'No response';
       
       return { text };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Gemini API error:', error);
+      
+      // Handle specific error cases
+      let errorMessage = 'AI service temporarily unavailable';
+      if (error?.message?.includes('overloaded')) {
+        errorMessage = 'AI service is busy, please try again';
+      } else if (error?.message?.includes('quota')) {
+        errorMessage = 'API quota exceeded';
+      } else if (error?.message?.includes('UNAVAILABLE')) {
+        errorMessage = 'AI service temporarily down';
+      }
+      
       return { 
-        text: 'Failed to connect to Gemini', 
+        text: errorMessage, 
         error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' 
       };
     }
@@ -383,9 +394,14 @@ export const orchestrator = {
       results.onchainData = { recentTransactions: transactions };
 
       // Generate AI insight based on collected data
-      if (marketData && sentiment) {
+      if (marketData && marketData.price && sentiment) {
         const context = `${symbol} is at $${marketData.price.toFixed(2)} with ${sentiment.overallSentiment} sentiment`;
         results.aiInsight = await geminiService.generateStrategy(agentRole, context);
+      } else if (marketData && marketData.price) {
+        const context = `${symbol} is currently at $${marketData.price.toFixed(2)}`;
+        results.aiInsight = await geminiService.generateStrategy(agentRole, context);
+      } else {
+        results.aiInsight = 'Market data temporarily unavailable, standing by for updates';
       }
 
       return results;

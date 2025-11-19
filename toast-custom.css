@@ -1,0 +1,50 @@
+/* Custom toast styles to match SpriteOps theme */
+
+.Toastify__toast {
+  background: rgba(0, 0, 0, 0.95) !important;
+  border: 1px solid rgba(57, 255, 20, 0.3) !important;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.2);
+  font-family: 'Courier New', monospace;
+}
+
+.Toastify__toast--success {
+  border-color: rgba(57, 255, 20, 0.5) !important;
+}
+
+.Toastify__toast--error {
+  border-color: rgba(255, 71, 87, 0.5) !important;
+}
+
+.Toastify__toast--info {
+  border-color: rgba(99, 102, 241, 0.5) !important;
+}
+
+.Toastify__progress-bar {
+  background: linear-gradient(
+    to right,
+    #39ff14,
+    #00ff88
+  ) !important;
+}
+
+.Toastify__progress-bar--error {
+  background: linear-gradient(
+    to right,
+    #ff4757,
+    #ff6348
+  ) !important;
+}
+
+.Toastify__close-button {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.Toastify__close-button:hover {
+  color: #39ff14 !important;
+}
+
+.Toastify__toast-body {
+  color: #ffffff;
+  padding: 8px;
+}

@@ -9,9 +9,12 @@ interface AgentCardProps {
   onClick: () => void;
   status?: 'idle' | 'negotiating' | 'streaming' | 'offline';
   isAutoMode?: boolean;
+  isMinting?: boolean;
+  isDeactivating?: boolean;
+  isOnChain?: boolean;
 }
 
-const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClick, status, isAutoMode }) => {
+const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClick, status, isAutoMode, isMinting, isDeactivating, isOnChain }) => {
   const isLocked = isAutoMode && agent.id !== 'a0'; // Lock all except Commander in auto mode
   // Pixel art placeholder
   const spriteUrl = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${agent.spriteSeed}&backgroundColor=transparent`;
@@ -45,6 +48,13 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClic
           {isActive ? currentStatus : 'offline'}
         </span>
       </div>
+      
+      {/* On-Chain Badge */}
+      {isOnChain && (
+        <div className="absolute top-3 left-3 bg-neon-green/20 border border-neon-green/50 rounded px-1.5 py-0.5 flex items-center gap-1">
+          <span className="text-neon-green text-[8px] font-mono font-bold">⛓️ ON-CHAIN</span>
+        </div>
+      )}
 
       <div className="p-4 flex flex-col items-center text-center">
         {/* Sprite Avatar Container */}
@@ -75,17 +85,31 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClic
         <div className="flex gap-2 w-full mt-auto">
            <button 
             onClick={(e) => { e.stopPropagation(); onToggle(); }}
-            disabled={isLocked}
+            disabled={isLocked || isMinting || isDeactivating}
             className={`
               flex-1 py-1 px-2 rounded text-[10px] font-bold font-mono uppercase tracking-wider border transition-all
               ${isLocked 
                 ? 'border-gray-600 bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'
+                : isMinting
+                  ? 'border-yellow-500 bg-yellow-500/20 text-yellow-500 cursor-wait animate-pulse'
+                : isDeactivating
+                  ? 'border-red-500 bg-red-500/20 text-red-500 cursor-wait animate-pulse'
                 : isActive 
                   ? 'border-neon-green bg-neon-green text-black hover:bg-white hover:border-white' 
                   : 'border-white/20 text-white/60 hover:border-white hover:text-white'}
             `}
            >
-             {isLocked ? <><Lock size={10} className="inline mr-1" />AUTO</> : isActive ? 'Deactivate' : 'Activate'}
+             {isLocked ? (
+               <><Lock size={10} className="inline mr-1" />AUTO</>
+             ) : isMinting ? (
+               <>⏳ Minting...</>
+             ) : isDeactivating ? (
+               <>⏳ Deactivating...</>
+             ) : isOnChain ? (
+               isActive ? 'Deactivate' : 'Activate'
+             ) : (
+               <>🔗 Register</>
+             )}
            </button>
         </div>
       </div>
