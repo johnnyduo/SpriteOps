@@ -9,7 +9,9 @@ import AgentDetailPanel from './components/AgentDetailPanel';
 import { AgentDialogue } from './components/AgentDialogue';
 import { AgentResultsPage } from './components/AgentResultsPage';
 import { ModeControl } from './components/ModeControl';
-import { orchestrator, cryptoService, newsService, hederaService } from './services/api';
+import { AgentProgressBar } from './components/AgentProgressBar';
+import { CaptainFundPanel } from './components/CaptainFundPanel';
+import { orchestrator, cryptoService, newsService, hederaService, agentStatusManager, sauceSwapService } from './services/api';
 import { testAPIs } from './testAPIs';
 import { useMintAgent, useDeactivateAgent } from './hooks/useAgentContract';
 import { useAccount } from 'wagmi';
@@ -27,6 +29,28 @@ const getHederaExplorerUrl = (txHash: string) => {
   return `https://hashscan.io/testnet/transaction/${txHash}`;
 };
 
+// Helper to fetch transaction from Hedera Mirror Node
+const fetchHederaTransaction = async (txHash: string): Promise<any> => {
+  try {
+    // Remove 0x prefix if present
+    const cleanHash = txHash.startsWith('0x') ? txHash.slice(2) : txHash;
+    const url = `https://testnet.mirrornode.hedera.com/api/v1/contracts/results/${cleanHash}`;
+    console.log('🌐 Fetching transaction from Hedera Mirror Node:', url);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Mirror node returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('✅ Hedera transaction data:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Failed to fetch from Hedera mirror node:', error);
+    return null;
+  }
+};
+
 const App: React.FC = () => {
   // --- Wallet & Contract Hooks ---
   const { address, isConnected } = useAccount();
@@ -41,6 +65,10 @@ const App: React.FC = () => {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogMessage[]>(INITIAL_LOGS);
   const [streamingEdges, setStreamingEdges] = useState<string[]>([]);
+  const [persistentEdges, setPersistentEdges] = useState<Array<{source: string, target: string}>>(() => {
+    const saved = localStorage.getItem('agentConnections');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [agentStatuses, setAgentStatuses] = useState<Record<string, 'idle' | 'negotiating' | 'streaming' | 'offline'>>({});
   const [mintingAgents, setMintingAgents] = useState<Set<string>>(new Set());
   const [deactivatingAgents, setDeactivatingAgents] = useState<Set<string>>(new Set());
@@ -60,7 +88,17 @@ const App: React.FC = () => {
     agentId: string;
     dialogue: string;
   } | null>(null);
-  const [taskResults, setTaskResults] = useState<AgentTaskResult[]>([]);
+  const [taskResults, setTaskResults] = useState<AgentTaskResult[]>(() => {
+    const stored = localStorage.getItem('taskResults');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [showResultsPage, setShowResultsPage] = useState(false);
   const [agentPositions, setAgentPositions] = useState<Record<string, { x: number; y: number }>>({});
   
@@ -69,11 +107,49 @@ const App: React.FC = () => {
   const [commanderBudget, setCommanderBudget] = useState<number>(100); // USDC
   const [budgetSpent, setBudgetSpent] = useState<number>(0);
 
+  // --- Captain Fund Management (HBAR for autonomous trading) ---
+  const [captainFundHBAR, setCaptainFundHBAR] = useState<number>(() => {
+    const saved = localStorage.getItem('captainFundHBAR');
+    return saved ? parseFloat(saved) : 0;
+  });
+  const [pendingFundRequest, setPendingFundRequest] = useState<boolean>(false);
+
+  // --- Agent Task Progress Tracking ---
+  const [agentProgress, setAgentProgress] = useState<Record<string, {
+    isActive: boolean;
+    progress: number; // 0-100
+    task: string;
+    startTime: number;
+  }>>({});
+
   // --- Refs to track current transaction context ---
   const currentMintingAgentRef = useRef<string | null>(null);
   const currentDeactivatingAgentRef = useRef<string | null>(null);
   const processedMintTxRef = useRef<Set<string>>(new Set());
   const processedDeactivateTxRef = useRef<Set<string>>(new Set());
+
+  // --- Persist taskResults to localStorage ---
+  useEffect(() => {
+    localStorage.setItem('taskResults', JSON.stringify(taskResults));
+  }, [taskResults]);
+
+  // --- Persist captain fund to localStorage ---
+  useEffect(() => {
+    localStorage.setItem('captainFundHBAR', captainFundHBAR.toString());
+  }, [captainFundHBAR]);
+
+  // Debug: Log hook values whenever they change
+  useEffect(() => {
+    if (hash || mintSuccess) {
+      console.log('🔍 Mint Hook Values:', { 
+        mintSuccess, 
+        hash: hash?.slice(0, 10), 
+        hasReceipt: !!receipt,
+        receiptStatus: receipt?.status,
+        currentMintingAgent: currentMintingAgentRef.current
+      });
+    }
+  }, [mintSuccess, hash, receipt]);
 
   // --- Memoized callback for closing dialogue ---
   const handleCloseDialogue = useCallback(() => {
@@ -98,9 +174,9 @@ const App: React.FC = () => {
     checkAPIs();
   }, []);
 
-  // --- Track mint success and extract tokenId from event ---
+  // --- Track mint success and fetch tokenId from Hedera Mirror Node ---
   useEffect(() => {
-    if (mintSuccess && hash && receipt && currentMintingAgentRef.current) {
+    if (mintSuccess && hash && currentMintingAgentRef.current) {
       // Prevent processing the same transaction twice
       if (processedMintTxRef.current.has(hash)) {
         return;
@@ -132,70 +208,79 @@ const App: React.FC = () => {
       
       addLog('SYSTEM', `⛓️ ${agent?.name} minted successfully! Tx: ${hash.slice(0, 10)}...`);
       
-      // Extract tokenId from AgentCreated event in transaction logs
-      try {
-        // Find the AgentCreated event in the logs
-        const agentCreatedLog = receipt.logs.find((log: any) => {
-          // AgentCreated event signature: keccak256("AgentCreated(uint256,address,string,string,uint256)")
-          return log.topics && log.topics.length > 0;
-        });
-        
-        if (agentCreatedLog && agentCreatedLog.topics && agentCreatedLog.topics[1]) {
-          // First indexed parameter (topics[1]) is the agentId (tokenId)
-          const tokenId = BigInt(agentCreatedLog.topics[1]);
-          
-          console.log('✅ Storing tokenId for agent:', agentId, 'tokenId:', tokenId.toString());
-          
-          // Store tokenId for the minted agent
-          setOnChainAgents(prev => {
-            const updated = {
-              ...prev,
-              [agentId]: tokenId
-            };
-            console.log('📝 Updated onChainAgents:', updated);
-            return updated;
-          });
-          addLog('SYSTEM', `🎫 ${agent?.name} received tokenId: ${tokenId.toString()}`);
-          
-          // Auto-activate agent after successful minting
-          setActiveAgents(prev => {
-            if (!prev.includes(agentId)) {
-              const updated = [...prev, agentId];
-              localStorage.setItem('activeAgents', JSON.stringify(updated));
-              addLog('SYSTEM', `✅ ${agent?.name} ACTIVATED on grid`);
-              return updated;
-            }
-            return prev;
-          });
-          
-          // Show greeting dialogue
-          if (agent?.personality) {
-            setTimeout(() => showAgentDialogue(agentId, 'greeting'), 1000);
-          }
-        } else {
-          console.warn('⚠️ Could not find AgentCreated event in logs');
-        }
-      } catch (error) {
-        console.error('Error extracting tokenId from receipt:', error);
-        // Fallback: use timestamp-based ID
-        const tokenId = BigInt(Date.now());
-        setOnChainAgents(prev => ({
-          ...prev,
-          [agentId]: tokenId
-        }));
-      }
+      // Transaction is confirmed! Mark agent as on-chain immediately with hash as temporary ID
+      const tempTokenId = BigInt(`0x${hash.slice(2, 18)}`); // Use first 16 chars of hash as temp ID
       
-      // Clear minting state for this agent
+      console.log('✅ Marking agent as on-chain with tx hash:', hash);
+      
+      // Update onChainAgents state immediately
+      setOnChainAgents(prevAgents => {
+        const newState = {
+          ...prevAgents,
+          [agentId]: tempTokenId
+        };
+        console.log('📝 Updated onChainAgents:', newState);
+        return newState;
+      });
+      
+      // Auto-activate agent
+      setActiveAgents(prev => {
+        if (!prev.includes(agentId)) {
+          const updated = [...prev, agentId];
+          localStorage.setItem('activeAgents', JSON.stringify(updated));
+          addLog('SYSTEM', `✅ ${agent?.name} ACTIVATED on grid`);
+          return updated;
+        }
+        return prev;
+      });
+      
+      // Clear minting state
       setMintingAgents(prev => {
         const next = new Set(prev);
         next.delete(agentId);
         return next;
       });
       
-      // Clear the ref
       currentMintingAgentRef.current = null;
+      
+      // Show greeting dialogue
+      if (agent?.personality) {
+        setTimeout(() => showAgentDialogue(agentId, 'greeting'), 500);
+      }
+      
+      // Fetch actual tokenId from Hedera in background for future reference
+      const fetchTokenId = async () => {
+        try {
+          console.log('🔄 Background: Fetching actual tokenId from Hedera mirror node...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          const txData = await fetchHederaTransaction(hash);
+          
+          if (txData) {
+            // The call_result field contains the return value from mintAgent (the tokenId)
+            if (txData.call_result && txData.call_result !== '0x') {
+              const actualTokenId = BigInt(txData.call_result);
+              console.log('✅ Got actual tokenId from call_result:', actualTokenId.toString());
+              
+              // Update with actual tokenId
+              setOnChainAgents(prev => ({
+                ...prev,
+                [agentId]: actualTokenId
+              }));
+              
+              addLog('SYSTEM', `🎫 ${agent?.name} tokenId: ${actualTokenId.toString()}`);
+            } else {
+              console.log('✅ Agent on-chain with hash-based ID (call_result empty)');
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Could not fetch tokenId from mirror node:', error);
+        }
+      };
+      
+      fetchTokenId();
     }
-  }, [mintSuccess, hash, receipt]);
+  }, [mintSuccess, hash]);
 
   // --- Track mint confirmation ---
   useEffect(() => {
@@ -213,9 +298,16 @@ const App: React.FC = () => {
 
   // --- Track deactivate success ---
   useEffect(() => {
+    console.log('🔍 Deactivate hook values:', { 
+      deactivateSuccess, 
+      deactivateHash: deactivateHash?.slice(0, 10), 
+      currentDeactivatingAgent: currentDeactivatingAgentRef.current 
+    });
+    
     if (deactivateSuccess && deactivateHash && currentDeactivatingAgentRef.current) {
       // Prevent processing the same transaction twice
       if (processedDeactivateTxRef.current.has(deactivateHash)) {
+        console.log('⚠️ Deactivate tx already processed:', deactivateHash.slice(0, 10));
         return;
       }
       processedDeactivateTxRef.current.add(deactivateHash);
@@ -223,6 +315,8 @@ const App: React.FC = () => {
       const agentId = currentDeactivatingAgentRef.current;
       const agent = AGENTS.find(a => a.id === agentId);
       const explorerUrl = getHederaExplorerUrl(deactivateHash);
+      
+      console.log('🎯 Processing deactivate success for agent:', agentId, 'tx:', deactivateHash);
       
       // Show toast notification
       toast.info(
@@ -243,18 +337,20 @@ const App: React.FC = () => {
       
       addLog('SYSTEM', `⛓️ ${agent?.name} deactivated on-chain! Tx: ${deactivateHash.slice(0, 10)}...`);
       
-      // Remove agent from active list after successful deactivation
+      // Remove agent from active list immediately
       setActiveAgents(prev => {
         const updated = prev.filter(a => a !== agentId);
         localStorage.setItem('activeAgents', JSON.stringify(updated));
         addLog('SYSTEM', `⏹️ ${agent?.name} DEACTIVATED from grid`);
+        console.log('✅ Updated activeAgents after deactivate:', updated);
         return updated;
       });
       
-      // Clear deactivating state for this agent
+      // Clear deactivating state immediately
       setDeactivatingAgents(prev => {
         const next = new Set(prev);
         next.delete(agentId);
+        console.log('✅ Cleared deactivating state for:', agentId);
         return next;
       });
       
@@ -275,6 +371,13 @@ const App: React.FC = () => {
   // --- Debug onChainAgents changes ---
   useEffect(() => {
     console.log('🔄 onChainAgents state updated:', Object.keys(onChainAgents).length, 'agents', onChainAgents);
+    console.log('📦 localStorage onChainAgents:', localStorage.getItem('onChainAgents'));
+    // Check specifically for Commander
+    if (onChainAgents['a0']) {
+      console.log('✅ Commander IS in onChainAgents with tokenId:', onChainAgents['a0']);
+    } else {
+      console.log('❌ Commander NOT in onChainAgents');
+    }
   }, [onChainAgents]);
 
   // --- Auto Mode: Activate Commander when mode switches ---
@@ -305,31 +408,37 @@ const App: React.FC = () => {
   };
 
   // --- Helper: Show contextual dialogue ---
-  const showAgentDialogue = useCallback((agentId: string, context?: 'greeting' | 'analyzing' | 'negotiating' | 'success' | 'idle') => {
+  const showAgentDialogue = useCallback((agentId: string, context?: 'greeting' | 'analyzing' | 'negotiating' | 'success' | 'idle' | 'error', customMessage?: string) => {
     const agent = AGENTS.find(a => a.id === agentId);
     if (!agent || !agent.personality) {
       console.warn(`Agent ${agentId} not found or has no personality`);
       return;
     }
 
-    const dialogues = agent.personality.dialogues;
     let selectedDialogue: string;
     
-    // Contextual dialogue selection for more natural conversation
-    if (context === 'greeting') {
-      // Use first dialogue as greeting
-      selectedDialogue = dialogues[0];
-    } else if (context === 'analyzing') {
-      // Prefer middle dialogues for analytical moments
-      const analyticalIndex = Math.floor(dialogues.length / 3) + Math.floor(Math.random() * 2);
-      selectedDialogue = dialogues[analyticalIndex] || dialogues[Math.floor(Math.random() * dialogues.length)];
-    } else if (context === 'success') {
-      // Use later dialogues for success moments
-      const successIndex = Math.floor(dialogues.length * 0.6) + Math.floor(Math.random() * 2);
-      selectedDialogue = dialogues[successIndex] || dialogues[Math.floor(Math.random() * dialogues.length)];
+    // If custom error message provided, use it
+    if (context === 'error' && customMessage) {
+      selectedDialogue = `⚠️ ${customMessage}`;
     } else {
-      // Random for idle chatter
-      selectedDialogue = dialogues[Math.floor(Math.random() * dialogues.length)];
+      const dialogues = agent.personality.dialogues;
+      
+      // Contextual dialogue selection for more natural conversation
+      if (context === 'greeting') {
+        // Use first dialogue as greeting
+        selectedDialogue = dialogues[0];
+      } else if (context === 'analyzing') {
+        // Prefer middle dialogues for analytical moments
+        const analyticalIndex = Math.floor(dialogues.length / 3) + Math.floor(Math.random() * 2);
+        selectedDialogue = dialogues[analyticalIndex] || dialogues[Math.floor(Math.random() * dialogues.length)];
+      } else if (context === 'success') {
+        // Use later dialogues for success moments
+        const successIndex = Math.floor(dialogues.length * 0.6) + Math.floor(Math.random() * 2);
+        selectedDialogue = dialogues[successIndex] || dialogues[Math.floor(Math.random() * dialogues.length)];
+      } else {
+        // Random for idle chatter
+        selectedDialogue = dialogues[Math.floor(Math.random() * dialogues.length)];
+      }
     }
     
     console.log(`🗨️ ${agent.name}: "${selectedDialogue}"`);
@@ -345,6 +454,8 @@ const App: React.FC = () => {
   }, []);
 
   const toggleAgent = useCallback(async (id: string) => {
+    console.log('🎬 toggleAgent called for:', id);
+    
     // In auto mode, only Commander can be manually toggled, others are controlled by Commander
     if (operationMode === 'auto' && id !== 'a0') {
       addLog('SYSTEM', '⚠️ Auto mode active: Only Commander can control agent activation');
@@ -355,6 +466,15 @@ const App: React.FC = () => {
     const agent = AGENTS.find(a => a.id === id);
     const isActivating = !isCurrentlyActive;
     const agentTokenId = onChainAgents[id];
+    
+    console.log('📊 Toggle state:', { 
+      id, 
+      isCurrentlyActive, 
+      isActivating, 
+      agentTokenId: agentTokenId?.toString(), 
+      isConnected,
+      onChainAgentsKeys: Object.keys(onChainAgents)
+    });
     
     // If activating and not on-chain yet, require wallet connection
     if (isActivating && !agentTokenId && !isConnected) {
@@ -423,19 +543,46 @@ const App: React.FC = () => {
       return;
     }
     
-    // If deactivating an on-chain agent, call deactivateAgent
-    if (!isActivating && isConnected && agent && agentTokenId) {
+    // If deactivating an on-chain agent (no blockchain tx needed, just local state change)
+    if (!isActivating && agent && agentTokenId) {
+      console.log('🔻 DEACTIVATE: Removing', agent.name, 'from active agents (local only)');
+      addLog('SYSTEM', `🔻 Deactivating ${agent.name}...`);
+      
+      // Remove from active agents immediately
+      setActiveAgents(prev => {
+        const updated = prev.filter(a => a !== id);
+        localStorage.setItem('activeAgents', JSON.stringify(updated));
+        addLog('SYSTEM', `⏹️ ${agent.name} DEACTIVATED from grid`);
+        return updated;
+      });
+      
+      toast.info(
+        <div>
+          <div className="font-bold">🔻 Agent Deactivated</div>
+          <div className="text-sm">{agent.name} removed from active grid</div>
+        </div>,
+        { autoClose: 3000 }
+      );
+      
+      return;
+    }
+    
+    // Legacy deactivate path (if deactivateAgent function existed)
+    if (!isActivating && isConnected && agent && agentTokenId && false) {
+      console.log('🔻 DEACTIVATE PATH: Starting deactivation for', agent.name, 'tokenId:', agentTokenId.toString());
       addLog('SYSTEM', `🔻 Deactivating ${agent.name} on-chain...`);
       setDeactivatingAgents(prev => new Set(prev).add(id));
-      currentDeactivatingAgentRef.current = id; // Track which agent is being deactivated
+      currentDeactivatingAgentRef.current = id;
       
       try {
+        console.log('📞 Calling deactivateAgent with tokenId:', agentTokenId.toString());
         await deactivateAgent(agentTokenId);
-        addLog('SYSTEM', `✅ ${agent.name} deactivated on-chain! Tx: ${deactivateHash?.slice(0, 10)}...`);
-        // Deactivation will be handled in the success handler
+        console.log('✅ deactivateAgent call completed, hash:', deactivateHash);
+        addLog('SYSTEM', `✅ ${agent.name} deactivation transaction submitted!`);
         return;
       } catch (error: any) {
         const errorMsg = error.message || 'User rejected transaction';
+        console.error('❌ Deactivate error:', error);
         addLog('SYSTEM', `❌ On-chain deactivation failed: ${errorMsg}`);
         
         toast.error(
@@ -463,8 +610,163 @@ const App: React.FC = () => {
       ...result,
       timestamp: Date.now()
     };
-    setTaskResults(prev => [...prev, newResult]);
+    setTaskResults(prev => {
+      const updated = [...prev, newResult];
+      // Save to localStorage
+      localStorage.setItem('taskResults', JSON.stringify(updated));
+      return updated;
+    });
   }, []);
+
+  // --- Captain Fund Management ---
+  const requestFundFromCaptain = useCallback(() => {
+    if (pendingFundRequest) return;
+    
+    setPendingFundRequest(true);
+    showAgentDialogue('a0', 'error', `⚠️ INSUFFICIENT FUNDS! Need HBAR to execute autonomous swaps. Please deposit to Captain fund.`);
+    addLog('SYSTEM', '🚨 Commander requesting fund deposit for autonomous trading');
+    
+    // Auto-clear request after 10 seconds
+    setTimeout(() => setPendingFundRequest(false), 10000);
+  }, [pendingFundRequest, showAgentDialogue]);
+
+  // --- HBAR→SAUCE/USDC Autonomous Swap (Merchant Volt) ---
+  const executeAutonomousSwap = useCallback(async (marketData: any, sentimentScore: number, agentId: string) => {
+    if (!activeAgents.includes(agentId)) return;
+    if (!activeAgents.includes('a0')) return; // Commander not active
+    
+    const agent = AGENTS.find(a => a.id === agentId)!;
+    
+    // Check if swap conditions are met
+    const swapDecision = sauceSwapService.shouldExecuteSwap(marketData, sentimentScore);
+    
+    if (!swapDecision.shouldSwap) {
+      agentStatusManager.setStatus(agentId, 'Monitoring signals...');
+      return;
+    }
+    
+    // Check captain fund balance
+    if (captainFundHBAR < swapDecision.recommendedAmount) {
+      agentStatusManager.setStatus(agentId, '⚠️ Insufficient captain fund');
+      requestFundFromCaptain();
+      return;
+    }
+    
+    // Start progress tracking
+    setAgentProgress(prev => ({
+      ...prev,
+      [agentId]: {
+        isActive: true,
+        progress: 0,
+        task: `Swapping ${swapDecision.recommendedAmount} HBAR → SAUCE/USDC`,
+        startTime: Date.now()
+      }
+    }));
+    
+    // Agent executes swap autonomously (NO approval needed)
+    agentStatusManager.setStatus(agentId, `Signal detected: ${swapDecision.reason}`);
+    addLog('A2A', `[${agent.name}]: 🔔 Swap signal! ${swapDecision.reason}`);
+    addLog('A2A', `[${agent.name}]: Executing autonomous swap: ${swapDecision.recommendedAmount} HBAR`);
+    
+    // Create x402 stream for fund deduction (Commander -> Agent)
+    const edgeId = `reactflow__edge-a0-${agentId}`;
+    setStreamingEdges(prev => [...prev, edgeId]);
+    setAgentStatuses(prev => ({ ...prev, a0: 'streaming', [agentId]: 'streaming' }));
+    agentStatusManager.setStatus('a0', 'Transferring fund via x402');
+    agentStatusManager.setStatus(agentId, 'Receiving fund authorization');
+    
+    // Progress: 20%
+    setAgentProgress(prev => ({
+      ...prev,
+      [agentId]: { ...prev[agentId], progress: 20 }
+    }));
+    
+    setTimeout(async () => {
+      // Deduct from captain fund
+      setCaptainFundHBAR(prev => prev - swapDecision.recommendedAmount);
+      addLog('x402', `💸 Deducted ${swapDecision.recommendedAmount} HBAR from Captain fund`);
+      agentStatusManager.setStatus(agentId, `Executing swap: ${swapDecision.recommendedAmount} HBAR`);
+      
+      // Progress: 40%
+      setAgentProgress(prev => ({
+        ...prev,
+        [agentId]: { ...prev[agentId], progress: 40 }
+      }));
+      
+      try {
+        // Get quote
+        const quote = await sauceSwapService.getSwapQuote(swapDecision.recommendedAmount);
+        addLog('SYSTEM', `[${agent.name}] Quote: ${swapDecision.recommendedAmount} HBAR → ${quote.amountOut.toFixed(2)} SAUCE (Impact: ${quote.priceImpact}%)`);
+        
+        // Progress: 60%
+        setAgentProgress(prev => ({
+          ...prev,
+          [agentId]: { ...prev[agentId], progress: 60 }
+        }));
+        
+        // Execute swap
+        const result = await sauceSwapService.executeSwap(swapDecision.recommendedAmount, quote.amountOut * 0.98); // 2% slippage
+        
+        // Progress: 80%
+        setAgentProgress(prev => ({
+          ...prev,
+          [agentId]: { ...prev[agentId], progress: 80 }
+        }));
+        
+        if (result.success) {
+          addLog('x402', `✅ SWAP SUCCESS: ${result.amountOut?.toFixed(2)} SAUCE received`);
+          agentStatusManager.setStatus(agentId, `Swap complete: ${result.amountOut?.toFixed(2)} SAUCE`);
+          
+          // Add task result
+          addTaskResult({
+            agentId,
+            agentName: agent.name,
+            taskType: 'market_research',
+            status: 'success',
+            data: { swapAmount: swapDecision.recommendedAmount, sauceReceived: result.amountOut, txHash: result.txHash },
+            summary: `Successfully swapped ${swapDecision.recommendedAmount} HBAR → ${result.amountOut?.toFixed(2)} SAUCE on SauceSwap`
+          });
+          
+          showAgentDialogue(agentId, 'success');
+        } else {
+          // Refund on failure
+          setCaptainFundHBAR(prev => prev + swapDecision.recommendedAmount);
+          throw new Error(result.error || 'Swap failed');
+        }
+      } catch (error: any) {
+        addLog('SYSTEM', `❌ [${agent.name}] Swap failed: ${error.message}`);
+        agentStatusManager.setStatus(agentId, `⚠️ Swap failed`);
+        showAgentDialogue(agentId, 'error', error.message);
+        
+        addTaskResult({
+          agentId,
+          agentName: agent.name,
+          taskType: 'market_research',
+          status: 'error',
+          summary: `Swap execution failed: ${error.message}`
+        });
+      } finally {
+        // Progress: 100%
+        setAgentProgress(prev => ({
+          ...prev,
+          [agentId]: { ...prev[agentId], progress: 100 }
+        }));
+        
+        // Clear progress after 2 seconds
+        setTimeout(() => {
+          setAgentProgress(prev => {
+            const next = { ...prev };
+            delete next[agentId];
+            return next;
+          });
+        }, 2000);
+        
+        // Close stream
+        setStreamingEdges(prev => prev.filter(e => e !== edgeId));
+        setAgentStatuses(prev => ({ ...prev, a0: 'idle', [agentId]: 'idle' }));
+      }
+    }, 1500);
+  }, [activeAgents, addLog, addTaskResult, showAgentDialogue, captainFundHBAR, requestFundFromCaptain]);
 
   // --- API Integration: Fetch real-time data for agents ---
   const fetchAgentIntelligence = useCallback(async (agentId: string) => {
@@ -472,29 +774,38 @@ const App: React.FC = () => {
     if (!agent) return;
 
     setAgentStatuses(prev => ({ ...prev, [agentId]: 'negotiating' }));
+    agentStatusManager.setStatus(agentId, 'Fetching intelligence...');
 
     try {
-      const intelligence = await orchestrator.getAgentIntelligence(agent.role, 'ETH/USD');
+      // Get comprehensive market research from CoinGecko
+      agentStatusManager.setStatus(agentId, 'Analyzing ETH market');
+      const intelligence = await orchestrator.getMarketResearch('ethereum');
       
-      // Log market data
+      // Log market data with full details
       if (intelligence.marketData && intelligence.marketData.price) {
-        addLog('SYSTEM', `[${agent.name}] Market Analysis: ETH at $${intelligence.marketData.price.toFixed(2)}`);
+        const price = intelligence.marketData.price.toLocaleString();
+        const changePercent = intelligence.marketData.changePercent;
+        agentStatusManager.setStatus(agentId, `Market scan: ETH $${price}`);
         
-        // Add market research result
+        addLog('SYSTEM', `[${agent.name}] Market Analysis: ETH at $${price}`);
+        
+        // Add market research result with comprehensive data
         addTaskResult({
           agentId: agent.id,
           agentName: agent.name,
           taskType: 'market_research',
           status: 'success',
           data: intelligence.marketData,
-          summary: `Market analysis completed: ETH at $${intelligence.marketData.price.toFixed(2)}, 24h change: ${(intelligence.marketData.change24h || 0).toFixed(2)}%`
+          summary: `Market analysis completed: ETH at $${price}, 24h change: ${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`
         });
       } else {
+        agentStatusManager.setStatus(agentId, 'Market data unavailable');
         addLog('SYSTEM', `[${agent.name}] Market data temporarily unavailable`);
       }
 
       // Log AI insight
       if (intelligence.aiInsight) {
+        agentStatusManager.setStatus(agentId, 'AI prediction generated');
         addLog('A2A', `[${agent.name}]: ${intelligence.aiInsight}`);
         
         // Add prediction result
@@ -510,7 +821,11 @@ const App: React.FC = () => {
 
       // Log sentiment
       if (intelligence.sentiment) {
-        addLog('SYSTEM', `[${agent.name}] Sentiment: ${intelligence.sentiment.overallSentiment.toUpperCase()} (${intelligence.sentiment.articles.length} sources)`);
+        const sentiment = intelligence.sentiment.overallSentiment.toUpperCase();
+        const articleCount = intelligence.sentiment.articles.length;
+        agentStatusManager.setStatus(agentId, `Sentiment: ${sentiment} (${articleCount} sources)`);
+        
+        addLog('SYSTEM', `[${agent.name}] Sentiment: ${sentiment} (${articleCount} sources)`);
         
         // Add sentiment analysis result
         addTaskResult({
@@ -519,8 +834,21 @@ const App: React.FC = () => {
           taskType: 'sentiment_analysis',
           status: 'success',
           data: intelligence.sentiment,
-          summary: `Sentiment analysis: ${intelligence.sentiment.overallSentiment.toUpperCase()} based on ${intelligence.sentiment.articles.length} news sources`
+          summary: `Sentiment analysis: ${sentiment} based on ${articleCount} news sources`
         });
+        
+        // Trigger swap check if Merchant Volt is active and we have good data
+        if (activeAgents.includes('a3') && intelligence.marketData) {
+          // Calculate sentiment score (0-100)
+          const sentimentScore = sentiment === 'BULLISH' ? 75 : sentiment === 'BEARISH' ? 25 : 50;
+          
+          // 20% chance to check swap conditions (avoid too frequent checks)
+          if (Math.random() < 0.2) {
+            setTimeout(() => {
+              executeAutonomousSwap(intelligence.marketData, sentimentScore, agentId);
+            }, 1000);
+          }
+        }
       }
 
       // Show contextual dialogue after completing intelligence fetch
@@ -532,6 +860,13 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error('Intelligence fetch error:', error);
       const errorMessage = error?.message || 'Service temporarily unavailable';
+      
+      // Update status cache with error
+      agentStatusManager.setStatus(agentId, `⚠️ ${errorMessage}`);
+      
+      // Show error via dialogue for better UX
+      showAgentDialogue(agentId, 'error', errorMessage);
+      
       addLog('SYSTEM', `⚠️ ${agent.name}: ${errorMessage}`);
       
       // Add error task result
@@ -545,9 +880,34 @@ const App: React.FC = () => {
       
       setAgentStatuses(prev => ({ ...prev, [agentId]: 'idle' }));
     }
-  }, [addTaskResult, showAgentDialogue]);
+  }, [addTaskResult, showAgentDialogue, activeAgents, executeAutonomousSwap]);
+
+  // --- Auto-connect Commander to all active agents ---
+  useEffect(() => {
+    if (activeAgents.includes('a0')) {
+      // Create connections from Commander to all other active agents
+      const newConnections = activeAgents
+        .filter(id => id !== 'a0')
+        .map(id => ({ source: 'a0', target: id }));
+      
+      // Merge with existing connections, avoiding duplicates
+      const merged = [...persistentEdges];
+      newConnections.forEach(conn => {
+        const exists = merged.some(e => e.source === conn.source && e.target === conn.target);
+        if (!exists) {
+          merged.push(conn);
+        }
+      });
+      
+      if (merged.length !== persistentEdges.length) {
+        setPersistentEdges(merged);
+        localStorage.setItem('agentConnections', JSON.stringify(merged));
+      }
+    }
+  }, [activeAgents]);
 
   // --- Simulation Loop (The "Life" of the app) ---
+  // Smart polling: Reduced frequency to conserve API quota
   useEffect(() => {
     if (activeAgents.length < 1) {
       setStreamingEdges([]);
@@ -557,8 +917,8 @@ const App: React.FC = () => {
     const interval = setInterval(async () => {
       const rand = Math.random();
 
-      // 1. Fetch real intelligence for random agent (25% chance)
-      if (rand < 0.25 && activeAgents.length > 0) {
+      // 1. Fetch real intelligence for random agent (10% chance - REDUCED from 25% to save API quota)
+      if (rand < 0.10 && activeAgents.length > 0) {
         const randomAgent = activeAgents[Math.floor(Math.random() * activeAgents.length)];
         fetchAgentIntelligence(randomAgent);
       }
@@ -577,17 +937,21 @@ const App: React.FC = () => {
         }));
 
         const messages = [
-          `Requesting dataset access for block range #1820000...`,
-          `Offer: 0.005 ETH for optimal routing path.`,
-          `Verifying SLA contract signature...`,
-          `Handshaking with protocol v2.1...`,
-          `Querying price oracle for asset pair...`,
-          `Analyzing Hedera network throughput...`,
-          `Proposing liquidity pool strategy...`
+          { msg: `Requesting dataset access for block range #1820000...`, status: 'Requesting dataset' },
+          { msg: `Offer: 0.005 ETH for optimal routing path.`, status: 'Negotiating fee' },
+          { msg: `Verifying SLA contract signature...`, status: 'Verifying contract' },
+          { msg: `Handshaking with protocol v2.1...`, status: 'Protocol handshake' },
+          { msg: `Querying price oracle for asset pair...`, status: 'Querying oracle' },
+          { msg: `Analyzing Hedera network throughput...`, status: 'Network analysis' },
+          { msg: `Proposing liquidity pool strategy...`, status: 'Strategy proposal' }
         ];
-        const msg = messages[Math.floor(Math.random() * messages.length)];
+        const selected = messages[Math.floor(Math.random() * messages.length)];
         
-        addLog('A2A', `[${sender.name} -> ${receiver.name}]: ${msg}`);
+        // Update status cache with specific negotiation activity
+        agentStatusManager.setStatus(senderId, `→ ${receiver.name}: ${selected.status}`);
+        agentStatusManager.setStatus(receiverId, `← ${sender.name}: Listening`);
+        
+        addLog('A2A', `[${sender.name} -> ${receiver.name}]: ${selected.msg}`);
         
         // Show dialogue from sender (70% chance)
         if (Math.random() < 0.7) {
@@ -600,6 +964,8 @@ const App: React.FC = () => {
             [senderId]: 'idle',
             [receiverId]: 'idle'
           }));
+          agentStatusManager.setStatus(senderId, 'Negotiation complete');
+          agentStatusManager.setStatus(receiverId, 'Negotiation complete');
         }, 2000);
       }
       
@@ -635,6 +1001,11 @@ const App: React.FC = () => {
            setStreamingEdges(prev => [...prev, edgeId]);
            
            const rate = Math.floor(Math.random() * 500 + 100);
+           
+           // Update status cache with streaming details
+           agentStatusManager.setStatus(id1, `Streaming x402 @ ${rate} wei/s`);
+           agentStatusManager.setStatus(id2, `Receiving stream @ ${rate} wei/s`);
+           
            addLog('x402', `Stream OPENED: ${sender.name} → ${receiver.name} @ ${rate} wei/sec`);
            
            // Auto-close stream after random duration
@@ -645,6 +1016,8 @@ const App: React.FC = () => {
                [id1]: 'idle',
                [id2]: 'idle'
              }));
+             agentStatusManager.setStatus(id1, 'Stream closed');
+             agentStatusManager.setStatus(id2, 'Stream closed');
              addLog('x402', `Stream CLOSED: ${sender.name} → ${receiver.name}`);
            }, 4000 + Math.random() * 4000);
         }
@@ -658,7 +1031,7 @@ const App: React.FC = () => {
         }
       }
 
-    }, 3000);
+    }, 5000); // INCREASED from 3s to 5s to reduce API call frequency
 
     return () => clearInterval(interval);
   }, [activeAgents, fetchAgentIntelligence]);
@@ -723,13 +1096,19 @@ const App: React.FC = () => {
         agents={AGENTS}
         results={taskResults}
         onBack={() => setShowResultsPage(false)}
+        onClearResults={() => {
+          setTaskResults([]);
+          localStorage.removeItem('taskResults');
+        }}
       />
     );
   }
 
   return (
     <div className="flex flex-col h-screen bg-[#050505] text-gray-200 overflow-hidden font-sans selection:bg-neon-green selection:text-black">
-      <WalletBar onViewResults={() => setShowResultsPage(true)} />
+      <WalletBar 
+        onViewResults={() => setShowResultsPage(true)}
+      />
       
       <div className="flex flex-1 overflow-hidden relative">
         
@@ -759,15 +1138,16 @@ const App: React.FC = () => {
 
         {/* Center: Flow Canvas */}
         <div className="flex-1 relative flex flex-col">
-          {/* Mode Control - Top Right Corner */}
-          <div className="absolute top-4 right-4 z-50">
-            <div className="flex items-center gap-2 bg-black/80 backdrop-blur-md border border-white/20 rounded-lg px-3 py-2">
+          {/* Top Right Controls: Mode + Captain Fund */}
+          <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+            {/* Mode Control - Simple Toggle */}
+            <div className="flex items-center gap-2 bg-black/80 backdrop-blur-md border border-white/20 rounded-lg p-1">
               <button
                 onClick={() => setOperationMode('manual')}
                 className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
                   operationMode === 'manual' 
                     ? 'bg-[#39ff14] text-black' 
-                    : 'bg-white/10 text-white/50 hover:bg-white/20'
+                    : 'bg-transparent text-white/50 hover:text-white'
                 }`}
               >
                 MANUAL
@@ -777,29 +1157,27 @@ const App: React.FC = () => {
                 className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
                   operationMode === 'auto' 
                     ? 'bg-[#39ff14] text-black' 
-                    : 'bg-white/10 text-white/50 hover:bg-white/20'
+                    : 'bg-transparent text-white/50 hover:text-white'
                 }`}
               >
                 AUTO
               </button>
-              {operationMode === 'auto' && (
-                <div className="ml-2 pl-2 border-l border-white/20 flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={commanderBudget}
-                    onChange={(e) => setCommanderBudget(Number(e.target.value))}
-                    className="w-16 bg-white/10 border border-white/20 rounded px-2 py-1 text-xs text-white"
-                    min="0"
-                    step="10"
-                  />
-                  <span className="text-xs text-white/70">USDC</span>
-                  <div className="ml-2 text-xs">
-                    <span className="text-[#39ff14] font-mono">{(commanderBudget - budgetSpent).toFixed(1)}</span>
-                    <span className="text-white/50"> left</span>
-                  </div>
-                </div>
-              )}
             </div>
+
+            {/* Captain Fund Panel */}
+            <CaptainFundPanel
+              currentBalance={captainFundHBAR}
+              onDeposit={(amount) => {
+                setCaptainFundHBAR(prev => prev + amount);
+                addLog('SYSTEM', `💰 Deposited ${amount} HBAR to Captain fund`);
+                toast.success(`Deposited ${amount} HBAR`, { autoClose: 2000 });
+              }}
+              onWithdraw={(amount) => {
+                setCaptainFundHBAR(prev => prev - amount);
+                addLog('SYSTEM', `💸 Withdrew ${amount} HBAR from Captain fund`);
+                toast.success(`Withdrew ${amount} HBAR`, { autoClose: 2000 });
+              }}
+            />
           </div>
           
           <div className="flex-1 relative">
@@ -810,7 +1188,31 @@ const App: React.FC = () => {
                 onNodePositionsChange={setAgentPositions}
                 activeDialogue={activeDialogue}
                 onCloseDialogue={handleCloseDialogue}
+                persistentEdges={persistentEdges}
+                onEdgesChange={(edges) => {
+                  setPersistentEdges(edges);
+                  localStorage.setItem('agentConnections', JSON.stringify(edges));
+                }}
              />
+             
+             {/* Progress Bars Overlay */}
+             {Object.entries(agentProgress).filter(([_, p]) => p.isActive).length > 0 && (
+               <div className="absolute bottom-4 right-4 space-y-2 z-40 max-w-md">
+                 {Object.entries(agentProgress)
+                   .filter(([_, progress]) => progress.isActive)
+                   .map(([agentId, progress]) => {
+                     const agent = AGENTS.find(a => a.id === agentId);
+                     return (
+                       <AgentProgressBar
+                         key={agentId}
+                         progress={progress.progress}
+                         task={progress.task}
+                         agentName={agent?.name || 'Agent'}
+                       />
+                     );
+                   })}
+               </div>
+             )}
           </div>
           
           {/* Bottom: Console */}

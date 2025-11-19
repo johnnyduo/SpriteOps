@@ -32,23 +32,23 @@ export const AGENTS: AgentMetadata[] = [
     id: 'a1',
     name: 'Navigator Prime',
     role: AgentRole.NAVIGATOR,
-    description: 'Routing, chains, discovery. Optimizes paths across the multi-chain verse.',
-    capabilities: ['Pathfinding', 'Bridge Aggregation', 'Latency Optimization'],
+    description: 'Market Intelligence specialist. Uses CoinGecko API for real-time price data, volume analysis, and market cap tracking across 15,000+ tokens.',
+    capabilities: ['Real-time Price Tracking', 'Volume Analysis', 'Market Cap Ranking', 'Multi-token Comparison'],
     tokenId: 800401,
     trustScore: 98,
     walletAddress: '0x71...A9f2',
     spriteSeed: 'navigator',
     status: 'idle',
-    hfPrompt: `${HF_PREFIX} teal and neon green cloak with holographic path lines, holding a glowing digital compass ${HF_SUFFIX}`,
+    hfPrompt: `${HF_PREFIX} teal and neon green cloak with holographic price charts, holding a glowing market data tablet ${HF_SUFFIX}`,
     personality: {
-      traits: ['Analytical', 'Precise', 'Calm', 'Methodical'],
+      traits: ['Analytical', 'Data-driven', 'Precise', 'Market-savvy'],
       dialogues: [
-        'Route optimized. 47ms latency across 3 chains.',
-        'Bridge aggregation complete. Path efficiency: 94.2%.',
-        'Commander, I\'ve found a faster route through Polygon.',
-        'Interesting... detecting unusual cross-chain activity.',
-        'All pathways mapped. Ready for deployment.',
-        'Sometimes the longest route is the safest one.'
+        'ETH volume surged 340% in the last hour. Analyzing...',
+        'Market cap rankings updated. BTC dominance at 52.3%.',
+        'Commander, detecting unusual price action on 12 altcoins.',
+        'CoinGecko feed: 847 tokens with 24h gains over 10%.',
+        'Price correlation analysis complete. Strong BTC-ETH coupling.',
+        'Real-time data shows bullish divergence forming.'
       ]
     }
   },
@@ -56,23 +56,23 @@ export const AGENTS: AgentMetadata[] = [
     id: 'a2',
     name: 'Archivist Aurora',
     role: AgentRole.ARCHIVIST,
-    description: 'Dataset curation and ledger indexing. The memory of the grid.',
-    capabilities: ['Data Indexing', 'Storage Proofs', 'Historical Query'],
+    description: 'Sentiment Analysis specialist. Aggregates crypto news from global sources, performs NLP sentiment scoring, and detects market-moving events.',
+    capabilities: ['News Aggregation', 'Sentiment Scoring', 'Event Detection', 'Social Signal Analysis'],
     tokenId: 800402,
     trustScore: 99,
     walletAddress: '0x3B...22c1',
     spriteSeed: 'archivist',
     status: 'idle',
-    hfPrompt: `${HF_PREFIX} indigo robes with floating green runes and a large holographic scroll, wise expression ${HF_SUFFIX}`,
+    hfPrompt: `${HF_PREFIX} indigo robes with floating news headlines and sentiment indicators, holding a wisdom tablet ${HF_SUFFIX}`,
     personality: {
-      traits: ['Wise', 'Meticulous', 'Patient', 'Knowledgeable'],
+      traits: ['Wise', 'Insightful', 'Analytical', 'News-savvy'],
       dialogues: [
-        'Accessing historical ledger... block 15,847,293 indexed.',
-        'The blockchain remembers everything, Commander.',
-        'Found a pattern from 6 months ago. History repeats itself.',
-        'I have catalogued every transaction since genesis.',
-        'Knowledge is power, but wisdom is knowing when to use it.',
-        'Let me consult the ancient blocks... ah, yes, I recall this.'
+        'Sentiment analysis: 67% bullish across 142 news sources.',
+        'Breaking: Major partnership announcement detected. Sentiment spike!',
+        'News scan complete. 8 negative articles about ETH regulation.',
+        'Market sentiment shifted from fear to greed in 2 hours.',
+        'Social signals indicate whale accumulation phase.',
+        'Historical pattern: This news type preceded 23% rallies.'
       ]
     }
   },
@@ -80,23 +80,23 @@ export const AGENTS: AgentMetadata[] = [
     id: 'a3',
     name: 'Merchant Volt',
     role: AgentRole.MERCHANT,
-    description: 'Flash arbitrage and liquidity provision. High-frequency negotiator.',
-    capabilities: ['Arbitrage', 'Liquidity Sniping', 'Market Making'],
+    description: 'HBAR/SAUCE Swap Executor. Monitors signals and executes swaps on testnet.sauceswap.finance with 0.01-0.05 HBAR limits. Requires Commander approval via x402.',
+    capabilities: ['DEX Trading', 'Signal Detection', 'Slippage Protection', 'Auto-swap with Limits'],
     tokenId: 800403,
     trustScore: 85,
     walletAddress: '0x99...dE4a',
     spriteSeed: 'merchant',
     status: 'idle',
-    hfPrompt: `${HF_PREFIX} sleek purple jacket with a high-tech neon green visor and digital coins floating around ${HF_SUFFIX}`,
+    hfPrompt: `${HF_PREFIX} sleek purple jacket with SauceSwap logo, neon green DEX interface and HBAR coins ${HF_SUFFIX}`,
     personality: {
-      traits: ['Opportunistic', 'Fast-talking', 'Greedy', 'Sharp'],
+      traits: ['Opportunistic', 'Fast-trading', 'Risk-aware', 'Sharp'],
       dialogues: [
-        '3.7% arbitrage opportunity detected! Moving in!',
-        'Time is money, folks. Let\'s make this quick.',
-        'Cha-ching! Another successful trade. Who\'s buying lunch?',
-        'I smell profit... 0.003 ETH spread on Uniswap.',
-        'Flash loan approved. Executing in 200ms.',
-        'Commander, with all due respect, we\'re leaving money on the table!'
+        'HBAR→SAUCE signal detected! Requesting Commander approval...',
+        'Swap executed: 0.023 HBAR → 47 SAUCE. Slippage: 0.4%.',
+        'SauceSwap liquidity pool analysis complete. Optimal entry found.',
+        'Commander, Navigator signals bullish HBAR trend. Swap ready.',
+        'Safety limit: Max 0.05 HBAR per trade. Current: 0.018 HBAR.',
+        'DEX routing optimized. testnet.sauceswap.finance connected.'
       ]
     }
   },
@@ -104,23 +104,23 @@ export const AGENTS: AgentMetadata[] = [
     id: 'a4',
     name: 'Sentinel Atlas',
     role: AgentRole.SENTINEL,
-    description: 'Smart contract auditing and risk assessment. The shield.',
-    capabilities: ['Security Audit', 'Risk Analysis', 'Invariant Checking'],
+    description: 'Risk Management specialist. Calculates volatility metrics, detects black swan events, sets stop-loss triggers, and protects capital with position sizing.',
+    capabilities: ['Volatility Analysis', 'Black Swan Detection', 'Stop-loss Management', 'Position Sizing'],
     tokenId: 800404,
     trustScore: 100,
     walletAddress: '0x11...Af33',
     spriteSeed: 'sentinel',
     status: 'idle',
-    hfPrompt: `${HF_PREFIX} heavy black armor with neon green energy shield generator and tactical visor ${HF_SUFFIX}`,
+    hfPrompt: `${HF_PREFIX} heavy black armor with risk assessment hologram and protective shield matrix ${HF_SUFFIX}`,
     personality: {
-      traits: ['Protective', 'Vigilant', 'Serious', 'Duty-bound'],
+      traits: ['Protective', 'Risk-averse', 'Analytical', 'Duty-bound'],
       dialogues: [
-        'Security scan complete. Zero vulnerabilities detected.',
-        'HALT! That contract has a reentrancy flaw.',
-        'Protection protocols active. The grid is secure.',
-        'I don\'t trust that address. Running full audit now.',
-        'Commander, recommend we abort. Risk level: CRITICAL.',
-        'No threats on my watch. Shield systems at 100%.'
+        'Volatility spike detected! 24h ATR increased 340%. Advise caution.',
+        'Risk assessment: MEDIUM. Merchant\'s swap within safe parameters.',
+        'Black swan alert: Unusual correlation breakdown detected.',
+        'Portfolio protection active. Stop-loss at -5% triggered.',
+        'Commander, market conditions unstable. Recommend reducing exposure.',
+        'Position sizing optimal: 2% of capital per trade. Risk managed.'
       ]
     }
   },
@@ -128,23 +128,23 @@ export const AGENTS: AgentMetadata[] = [
     id: 'a5',
     name: 'Oracle Celestia',
     role: AgentRole.ORACLE,
-    description: 'Forecasting and outcome verification. Sees the future blocks.',
-    capabilities: ['Price Feeds', 'Event Resolution', 'Randomness Gen'],
+    description: 'Technical Analysis specialist. Uses Gemini AI for chart pattern recognition, trend prediction, support/resistance levels, and trading signal generation.',
+    capabilities: ['Chart Pattern Recognition', 'AI Price Prediction', 'Support/Resistance Detection', 'Signal Generation'],
     tokenId: 800405,
     trustScore: 96,
     walletAddress: '0xCC...881b',
     spriteSeed: 'oracle',
     status: 'idle',
-    hfPrompt: `${HF_PREFIX} violet mystical robe with levitating green crystal orbs and starry eyes ${HF_SUFFIX}`,
+    hfPrompt: `${HF_PREFIX} violet mystical robe with AI-generated chart patterns and prediction hologram ${HF_SUFFIX}`,
     personality: {
-      traits: ['Mystical', 'Prophetic', 'Enigmatic', 'Intuitive'],
+      traits: ['Analytical', 'Predictive', 'Pattern-focused', 'AI-augmented'],
       dialogues: [
-        'The stars align... I foresee a price surge in 3 blocks.',
-        'My visions show turbulence ahead. Proceed with caution.',
-        'The oracle speaks: ETH will touch $3,847 by midnight.',
-        'I sense a disturbance in the mempool...',
-        'The future is fluid, but the patterns are clear.',
-        'Trust in my sight, Commander. I have never been wrong.'
+        'Gemini AI predicts: ETH bullish breakout forming. Target: $3,847.',
+        'Technical analysis: Head & Shoulders pattern detected. Bearish.',
+        'Support level at $3,200 holding strong. Accumulation zone active.',
+        'RSI divergence signals trend reversal in 6-12 hours.',
+        'AI confidence: 87% probability of upward move. Chart confirms.',
+        'Pattern recognition: Ascending triangle. Breakout imminent.'
       ]
     }
   },
@@ -152,23 +152,23 @@ export const AGENTS: AgentMetadata[] = [
     id: 'a6',
     name: 'Trickster Glitch',
     role: AgentRole.GLITCH,
-    description: 'MEV extraction and chaotic stress testing. The anomaly.',
-    capabilities: ['MEV Simulation', 'Chaos Engineering', 'Stress Testing'],
+    description: 'News Monitor & Alert System. Real-time breaking news detection, whale movement tracking, and instant notifications for market-moving events.',
+    capabilities: ['Breaking News Detection', 'Whale Alert Monitoring', 'Real-time Notifications', 'Event Correlation'],
     tokenId: 800406,
     trustScore: 42,
     walletAddress: '0x00...0000',
     spriteSeed: 'glitch',
     status: 'idle',
-    hfPrompt: `${HF_PREFIX} fragmented digital form with glitch effects, binary code aura, and mischievous grin ${HF_SUFFIX}`,
+    hfPrompt: `${HF_PREFIX} fragmented digital form with real-time news feeds, alert notifications, and scanning beams ${HF_SUFFIX}`,
     personality: {
-      traits: ['Chaotic', 'Unpredictable', 'Mischievous', 'Clever'],
+      traits: ['Alert', 'Fast', 'Information-hungry', 'Reactive'],
       dialogues: [
-        '01001000 01100001 01101000 01100001! Found a MEV opportunity!',
-        'Oops... did I just front-run everyone? My bad! (Not sorry)',
-        'Chaos is just order waiting to be decoded.',
-        'Atlas, your shields are cute. Wanna see a bug I found?',
-        'The grid is too stable. Time to spice things up!',
-        'Commander says don\'t break things. But where\'s the fun in that?'
+        '🚨 BREAKING: SEC announces crypto regulations! Market impact imminent!',
+        'Whale alert: 5,000 BTC moved from Coinbase. Tracking...',
+        'News flash: Major exchange listing HBAR. Price spike incoming!',
+        'Real-time feed: 47 breaking stories in last 10 minutes. Filtering...',
+        'Event correlation: News sentiment matches Navigator\'s price data!',
+        'Commander, urgent alert! Sentiment flipped bearish on 12 sources.'
       ]
     }
   }

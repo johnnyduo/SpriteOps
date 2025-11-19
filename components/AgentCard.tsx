@@ -16,9 +16,24 @@ interface AgentCardProps {
 
 const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClick, status, isAutoMode, isMinting, isDeactivating, isOnChain }) => {
   const isLocked = isAutoMode && agent.id !== 'a0'; // Lock all except Commander in auto mode
+  
   // Pixel art placeholder
   const spriteUrl = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${agent.spriteSeed}&backgroundColor=transparent`;
   const currentStatus = status || agent.status;
+  
+  // Determine button text
+  let buttonText = '';
+  if (isLocked) {
+    buttonText = 'AUTO';
+  } else if (isMinting) {
+    buttonText = 'Minting...';
+  } else if (isDeactivating) {
+    buttonText = 'Deactivating...';
+  } else if (isOnChain) {
+    buttonText = isActive ? 'Deactivate' : 'Activate';
+  } else {
+    buttonText = 'Register';
+  }
   
   const getStatusColor = () => {
     if (!isActive) return 'bg-gray-500';
@@ -100,15 +115,15 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClic
             `}
            >
              {isLocked ? (
-               <><Lock size={10} className="inline mr-1" />AUTO</>
+               <><Lock size={10} className="inline mr-1" />{buttonText}</>
              ) : isMinting ? (
-               <>⏳ Minting...</>
+               <>⏳ {buttonText}</>
              ) : isDeactivating ? (
-               <>⏳ Deactivating...</>
+               <>⏳ {buttonText}</>
              ) : isOnChain ? (
-               isActive ? 'Deactivate' : 'Activate'
+               buttonText
              ) : (
-               <>🔗 Register</>
+               <>🔗 {buttonText}</>
              )}
            </button>
         </div>

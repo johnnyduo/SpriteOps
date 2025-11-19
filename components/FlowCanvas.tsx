@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useEffect } from 'react';
+import React, { useCallback, useMemo, useEffect, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -15,6 +15,7 @@ import ReactFlow, {
   MarkerType,
 } from 'reactflow';
 import { AgentMetadata } from '../types';
+import { agentStatusManager } from '../services/api';
 
 // --- Custom Agent Node Component (defined outside to prevent re-creation) ---
 const AgentNode = React.memo(({ data }: NodeProps) => {
@@ -130,38 +131,83 @@ interface FlowCanvasProps {
   onNodePositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
   activeDialogue?: { agentId: string; dialogue: string } | null;
   onCloseDialogue?: () => void;
+  persistentEdges?: Array<{source: string, target: string}>; // persistent connections
+  onEdgesChange?: (edges: Array<{source: string, target: string}>) => void;
 }
 
-const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streamingEdges, onNodePositionsChange, activeDialogue, onCloseDialogue }) => {
+const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streamingEdges, onNodePositionsChange, activeDialogue, onCloseDialogue, persistentEdges = [], onEdgesChange: onPersistentEdgesChange }) => {
+
+  // Load saved positions from localStorage
+  const savedPositions = useMemo(() => {
+    const saved = localStorage.getItem('nodePositions');
+    if (saved) {
+      try {
+        return JSON.parse(saved) as Record<string, { x: number; y: number }>;
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  }, []);
 
   // Convert active agents to Nodes
   const initialNodes: Node[] = useMemo(() => {
     return activeAgents.map((id, index) => {
       const agent = agents.find(a => a.id === id)!;
+      // Use saved position if available, otherwise use default layout
+      const savedPos = savedPositions[id];
+      const position = savedPos || { x: 100 + (index * 250), y: 100 + (index % 2) * 150 };
+      
       return {
         id: agent.id,
         type: 'agentNode',
-        position: { x: 100 + (index * 250), y: 100 + (index % 2) * 150 },
+        position,
         data: { 
           agent,
           isStreaming: false, // Will be updated dynamically via simulation
-          currentAction: 'Idling...',
+          currentAction: agentStatusManager.getStatus(agent.id), // Get cached status
           dialogue: null, // Will hold active dialogue
           onCloseDialogue: () => {}
         },
       };
     });
-  }, [activeAgents, agents]);
+  }, [activeAgents, agents, savedPositions]);
+
+  // Create initial edges from persistent connections
+  const initialEdges: Edge[] = useMemo(() => {
+    return persistentEdges
+      .filter(conn => activeAgents.includes(conn.source) && activeAgents.includes(conn.target))
+      .map(conn => ({
+        id: `reactflow__edge-${conn.source}-${conn.target}`,
+        source: conn.source,
+        target: conn.target,
+        ...defaultEdgeOptions
+      }));
+  }, [persistentEdges, activeAgents]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ 
-      ...params, 
-      ...defaultEdgeOptions,
-    }, eds)),
-    [setEdges]
+    (params: Connection) => {
+      if (!params.source || !params.target) return;
+      
+      // Add to local edges
+      setEdges((eds) => addEdge({ 
+        ...params, 
+        ...defaultEdgeOptions,
+      }, eds));
+      
+      // Save to persistent storage
+      if (onPersistentEdgesChange) {
+        const newConnection = { source: params.source, target: params.target };
+        const exists = persistentEdges.some(e => e.source === params.source && e.target === params.target);
+        if (!exists) {
+          onPersistentEdgesChange([...persistentEdges, newConnection]);
+        }
+      }
+    },
+    [setEdges, onPersistentEdgesChange, persistentEdges]
   );
 
   // Effect to update node data when props change (simulation updates)
@@ -171,12 +217,24 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
         // Find if this node is part of a streaming edge
         const isSource = streamingEdges.some(edgeId => edgeId.startsWith(node.id));
         const isTarget = streamingEdges.some(edgeId => edgeId.endsWith(node.id));
+        
+        // Get cached status from agentStatusManager (fast!)
+        const cachedStatus = agentStatusManager.getStatus(node.id);
+        
+        // Determine current action: prioritize streaming, then cached activity, then default
+        let currentAction = cachedStatus;
+        if (isSource) {
+          currentAction = 'Streaming x402...';
+        } else if (isTarget) {
+          currentAction = 'Receiving Service';
+        }
+        
         return {
           ...node,
           data: {
             ...node.data,
             isStreaming: isSource || isTarget,
-            currentAction: isSource ? 'Streaming x402...' : isTarget ? 'Receiving Service' : 'Idling...',
+            currentAction,
             // Preserve dialogue and callback
             dialogue: node.data.dialogue,
             onCloseDialogue: node.data.onCloseDialogue
@@ -214,35 +272,55 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
     }));
   }, [streamingEdges, activeAgents, setNodes, setEdges]);
 
-  // Re-sync nodes if active agent list changes length significantly (simple approach)
+  // Re-sync nodes if active agent list changes length (preserve positions from localStorage)
   useEffect(() => {
      if (nodes.length !== activeAgents.length) {
          const newNodes = activeAgents.map((id, index) => {
             const existingNode = nodes.find(n => n.id === id);
             const agent = agents.find(a => a.id === id)!;
+            
+            // If node already exists, keep it as is
             if (existingNode) return existingNode;
+            
+            // For new nodes, check saved position first
+            const savedPos = savedPositions[id];
+            const position = savedPos || { 
+              x: 150 + (index * 200) + (Math.random() * 50 - 25), 
+              y: 150 + ((index % 2) * 200) + (Math.random() * 50 - 25) 
+            };
+            
             return {
                 id: agent.id,
                 type: 'agentNode',
-                position: { 
-                  x: 150 + (index * 200) + (Math.random() * 50 - 25), 
-                  y: 150 + ((index % 2) * 200) + (Math.random() * 50 - 25) 
-                },
-                data: { agent, isStreaming: false, currentAction: 'Booting...' }
+                position,
+                data: { 
+                  agent, 
+                  isStreaming: false, 
+                  currentAction: agentStatusManager.getStatus(agent.id),
+                  dialogue: null,
+                  onCloseDialogue: () => {}
+                }
             };
          });
          setNodes(newNodes);
      }
-  }, [activeAgents, agents, nodes, setNodes]);
+  }, [activeAgents, agents, nodes, setNodes, savedPositions]);
 
-  // Report node positions to parent for dialogue placement
+  // Report node positions to parent for dialogue placement AND save to localStorage
   useEffect(() => {
-    if (onNodePositionsChange && nodes.length > 0) {
+    if (nodes.length > 0) {
       const positions: Record<string, { x: number; y: number }> = {};
       nodes.forEach(node => {
         positions[node.id] = { x: node.position.x, y: node.position.y };
       });
-      onNodePositionsChange(positions);
+      
+      // Save to localStorage
+      localStorage.setItem('nodePositions', JSON.stringify(positions));
+      
+      // Report to parent
+      if (onNodePositionsChange) {
+        onNodePositionsChange(positions);
+      }
     }
   }, [nodes, onNodePositionsChange]);
 
@@ -259,6 +337,43 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
       }))
     );
   }, [activeDialogue, onCloseDialogue, setNodes]);
+
+  // Poll status cache every 2 seconds for real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNodes(nds => 
+        nds.map(node => {
+          const isSource = streamingEdges.some(edgeId => edgeId.startsWith(node.id));
+          const isTarget = streamingEdges.some(edgeId => edgeId.endsWith(node.id));
+          
+          // Get fresh cached status
+          const cachedStatus = agentStatusManager.getStatus(node.id);
+          
+          let currentAction = cachedStatus;
+          if (isSource) {
+            currentAction = 'Streaming x402...';
+          } else if (isTarget) {
+            currentAction = 'Receiving Service';
+          }
+          
+          // Only update if status changed (prevent unnecessary re-renders)
+          if (node.data.currentAction === currentAction) {
+            return node;
+          }
+          
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              currentAction
+            }
+          };
+        })
+      );
+    }, 2000); // Update every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [streamingEdges, setNodes]);
 
   return (
     <div className="w-full h-full bg-[#050505] relative">

@@ -33,8 +33,8 @@ export interface AgentTaskResult {
   agentName: string;
   taskType: 'market_research' | 'sentiment_analysis' | 'security_audit' | 'price_prediction' | 'arbitrage_scan' | 'route_optimization';
   timestamp: number;
-  status: 'success' | 'failed' | 'pending';
-  data: any;
+  status: 'success' | 'failed' | 'pending' | 'error';
+  data?: any;
   summary: string;
 }
 
