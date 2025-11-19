@@ -133,9 +133,6 @@ interface FlowCanvasProps {
 }
 
 const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streamingEdges, onNodePositionsChange, activeDialogue, onCloseDialogue }) => {
-  // Memoize nodeTypes and edgeTypes inside component as additional safety
-  const memoizedNodeTypes = useMemo(() => nodeTypes, []);
-  const memoizedEdgeTypes = useMemo(() => edgeTypes, []);
 
   // Convert active agents to Nodes
   const initialNodes: Node[] = useMemo(() => {
@@ -268,8 +265,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        nodeTypes={memoizedNodeTypes}
-        edgeTypes={memoizedEdgeTypes}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -298,16 +295,4 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ agents, activeAgents, streaming
   );
 };
 
-// Memoize with custom comparison to prevent unnecessary re-renders
-export default React.memo(FlowCanvas, (prevProps, nextProps) => {
-  return (
-    prevProps.agents === nextProps.agents &&
-    prevProps.activeAgents.length === nextProps.activeAgents.length &&
-    prevProps.activeAgents.every((id, i) => id === nextProps.activeAgents[i]) &&
-    prevProps.streamingEdges.length === nextProps.streamingEdges.length &&
-    prevProps.streamingEdges.every((id, i) => id === nextProps.streamingEdges[i]) &&
-    prevProps.activeDialogue === nextProps.activeDialogue &&
-    prevProps.onCloseDialogue === nextProps.onCloseDialogue &&
-    prevProps.onNodePositionsChange === nextProps.onNodePositionsChange
-  );
-});
+export default FlowCanvas;

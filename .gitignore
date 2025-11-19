@@ -1,5 +1,24 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production Build
+dist/
+dist-ssr/
+build/
+out/
+
+# Environment Variables (NEVER COMMIT THESE!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,20 +26,40 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-.env.local
-.env
+# Testing
+coverage/
+*.lcov
+.nyc_output/
 
-# Editor directories and files
+# Hardhat/Smart Contract Artifacts
+artifacts/
+cache/
+typechain-types/
+deployments/
+*.tsbuildinfo
+
+# Editor & IDE
 .vscode/*
 !.vscode/extensions.json
-.idea
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*.swn
+*~
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
+._*
+
+# Temporary
+tmp/
+temp/
+*.tmp

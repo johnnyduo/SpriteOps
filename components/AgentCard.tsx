@@ -1,6 +1,6 @@
 import React from 'react';
 import { AgentMetadata } from '../types';
-import { Activity, Shield, Cpu, Hash, ExternalLink } from 'lucide-react';
+import { Activity, Shield, Cpu, Hash, ExternalLink, Lock } from 'lucide-react';
 
 interface AgentCardProps {
   agent: AgentMetadata;
@@ -8,9 +8,11 @@ interface AgentCardProps {
   onToggle: () => void;
   onClick: () => void;
   status?: 'idle' | 'negotiating' | 'streaming' | 'offline';
+  isAutoMode?: boolean;
 }
 
-const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClick, status }) => {
+const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClick, status, isAutoMode }) => {
+  const isLocked = isAutoMode && agent.id !== 'a0'; // Lock all except Commander in auto mode
   // Pixel art placeholder
   const spriteUrl = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${agent.spriteSeed}&backgroundColor=transparent`;
   const currentStatus = status || agent.status;
@@ -73,17 +75,30 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, isActive, onToggle, onClic
         <div className="flex gap-2 w-full mt-auto">
            <button 
             onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            disabled={isLocked}
             className={`
               flex-1 py-1 px-2 rounded text-[10px] font-bold font-mono uppercase tracking-wider border transition-all
-              ${isActive 
-                ? 'border-neon-green bg-neon-green text-black hover:bg-white hover:border-white' 
-                : 'border-white/20 text-white/60 hover:border-white hover:text-white'}
+              ${isLocked 
+                ? 'border-gray-600 bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'
+                : isActive 
+                  ? 'border-neon-green bg-neon-green text-black hover:bg-white hover:border-white' 
+                  : 'border-white/20 text-white/60 hover:border-white hover:text-white'}
             `}
            >
-             {isActive ? 'Deactivate' : 'Activate'}
+             {isLocked ? <><Lock size={10} className="inline mr-1" />AUTO</> : isActive ? 'Deactivate' : 'Activate'}
            </button>
         </div>
       </div>
+      
+      {/* Auto Mode Lock Overlay */}
+      {isLocked && (
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
+          <div className="bg-yellow-500/20 border border-yellow-500/50 rounded px-2 py-1 flex items-center gap-1">
+            <Lock size={12} className="text-yellow-500" />
+            <span className="text-yellow-500 text-xs font-mono font-bold">AUTO</span>
+          </div>
+        </div>
+      )}
       
       {/* Decorative corner accents */}
       <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-neon-green opacity-50"></div>

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@openzeppelin/contracts": "^5.4.0",
     "@reown/appkit": "^1.8.14",
     "@reown/appkit-adapter-wagmi": "^1.8.14",
     "@tanstack/react-query": "^5.90.10",
@@ -21,10 +22,17 @@
     "wagmi": "^2.19.4"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.0.3",
+    "@nomicfoundation/hardhat-ignition-ethers": "^3.0.5",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@nomicfoundation/ignition-core": "^3.0.5",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6",
+    "hardhat": "^3.0.15",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

@@ -8,6 +8,7 @@ import ConsolePanel from './components/ConsolePanel';
 import AgentDetailPanel from './components/AgentDetailPanel';
 import { AgentDialogue } from './components/AgentDialogue';
 import { AgentResultsPage } from './components/AgentResultsPage';
+import { ModeControl } from './components/ModeControl';
 import { orchestrator, cryptoService, newsService, hederaService } from './services/api';
 import { testAPIs } from './testAPIs';
 
@@ -32,6 +33,11 @@ const App: React.FC = () => {
   const [taskResults, setTaskResults] = useState<AgentTaskResult[]>([]);
   const [showResultsPage, setShowResultsPage] = useState(false);
   const [agentPositions, setAgentPositions] = useState<Record<string, { x: number; y: number }>>({});
+  
+  // --- Mode Control State ---
+  const [operationMode, setOperationMode] = useState<'auto' | 'manual'>('manual');
+  const [commanderBudget, setCommanderBudget] = useState<number>(100); // USDC
+  const [budgetSpent, setBudgetSpent] = useState<number>(0);
 
   // --- Memoized callback for closing dialogue ---
   const handleCloseDialogue = useCallback(() => {
@@ -55,6 +61,22 @@ const App: React.FC = () => {
     
     checkAPIs();
   }, []);
+
+  // --- Auto Mode: Activate Commander when mode switches ---
+  useEffect(() => {
+    if (operationMode === 'auto') {
+      // Auto-activate Commander if not active
+      if (!activeAgents.includes('a0')) {
+        addLog('SYSTEM', '⚡ AUTO MODE: Activating Commander Nexus with budget of ' + commanderBudget.toFixed(2) + ' USDC');
+        setActiveAgents(prev => ['a0', ...prev]);
+        setTimeout(() => showAgentDialogue('a0', 'greeting'), 1000);
+      }
+      setBudgetSpent(0); // Reset budget spent
+    } else {
+      // Manual mode: can deactivate all if needed
+      addLog('SYSTEM', '✋ MANUAL MODE: Full manual control enabled');
+    }
+  }, [operationMode, commanderBudget]);
 
   // --- Handlers ---
   const addLog = (type: 'A2A' | 'x402' | 'SYSTEM', content: string) => {
@@ -108,6 +130,12 @@ const App: React.FC = () => {
   }, []);
 
   const toggleAgent = useCallback((id: string) => {
+    // In auto mode, only Commander can be manually toggled, others are controlled by Commander
+    if (operationMode === 'auto' && id !== 'a0') {
+      addLog('SYSTEM', '⚠️ Auto mode active: Only Commander can control agent activation');
+      return;
+    }
+    
     const isCurrentlyActive = activeAgents.includes(id);
     
     setActiveAgents(prev => 
@@ -123,7 +151,7 @@ const App: React.FC = () => {
     if (isActivating && agent?.personality) {
       setTimeout(() => showAgentDialogue(id, 'greeting'), 1000);
     }
-  }, [activeAgents, showAgentDialogue]);
+  }, [activeAgents, showAgentDialogue, operationMode]);
 
   // --- Helper: Add task result ---
   const addTaskResult = useCallback((result: Omit<AgentTaskResult, 'timestamp'>) => {
@@ -259,6 +287,17 @@ const App: React.FC = () => {
       
       // 3. x402 Streaming Event (20% chance to start a stream)
       else if (rand >= 0.55 && rand < 0.75 && activeAgents.length >= 2) {
+        // In auto mode, check budget before starting stream
+        if (operationMode === 'auto') {
+          const streamCost = 0.5 + Math.random() * 2; // 0.5-2.5 USDC per stream
+          if (budgetSpent + streamCost > commanderBudget) {
+            addLog('SYSTEM', '⚠️ Insufficient budget for x402 stream. Commander pausing operations.');
+            return;
+          }
+          setBudgetSpent(prev => prev + streamCost);
+          addLog('x402', `💰 Budget: ${streamCost.toFixed(2)} USDC spent on stream. Remaining: ${(commanderBudget - budgetSpent - streamCost).toFixed(2)} USDC`);
+        }
+        
         const id1 = activeAgents[Math.floor(Math.random() * activeAgents.length)];
         const id2 = activeAgents.find(id => id !== id1);
         
@@ -381,6 +420,7 @@ const App: React.FC = () => {
           <div className="p-4 border-b border-white/10">
             <h2 className="text-sm font-bold text-gray-400 font-mono uppercase tracking-widest">Agent Deck</h2>
           </div>
+          
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {AGENTS.map(agent => (
               <AgentCard 
@@ -390,6 +430,7 @@ const App: React.FC = () => {
                 onToggle={() => toggleAgent(agent.id)}
                 onClick={() => setSelectedAgentId(agent.id)}
                 status={agentStatuses[agent.id]}
+                isAutoMode={operationMode === 'auto'}
               />
             ))}
           </div>
@@ -397,6 +438,49 @@ const App: React.FC = () => {
 
         {/* Center: Flow Canvas */}
         <div className="flex-1 relative flex flex-col">
+          {/* Mode Control - Top Right Corner */}
+          <div className="absolute top-4 right-4 z-50">
+            <div className="flex items-center gap-2 bg-black/80 backdrop-blur-md border border-white/20 rounded-lg px-3 py-2">
+              <button
+                onClick={() => setOperationMode('manual')}
+                className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                  operationMode === 'manual' 
+                    ? 'bg-[#39ff14] text-black' 
+                    : 'bg-white/10 text-white/50 hover:bg-white/20'
+                }`}
+              >
+                MANUAL
+              </button>
+              <button
+                onClick={() => setOperationMode('auto')}
+                className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                  operationMode === 'auto' 
+                    ? 'bg-[#39ff14] text-black' 
+                    : 'bg-white/10 text-white/50 hover:bg-white/20'
+                }`}
+              >
+                AUTO
+              </button>
+              {operationMode === 'auto' && (
+                <div className="ml-2 pl-2 border-l border-white/20 flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={commanderBudget}
+                    onChange={(e) => setCommanderBudget(Number(e.target.value))}
+                    className="w-16 bg-white/10 border border-white/20 rounded px-2 py-1 text-xs text-white"
+                    min="0"
+                    step="10"
+                  />
+                  <span className="text-xs text-white/70">USDC</span>
+                  <div className="ml-2 text-xs">
+                    <span className="text-[#39ff14] font-mono">{(commanderBudget - budgetSpent).toFixed(1)}</span>
+                    <span className="text-white/50"> left</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
           <div className="flex-1 relative">
              <FlowCanvas 
                 agents={AGENTS} 
