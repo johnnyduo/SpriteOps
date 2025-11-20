@@ -1,44 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { Layers, BarChart3, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Layers, TrendingUp } from 'lucide-react';
 import { WalletConnect } from './WalletConnect';
 import { useAccount } from 'wagmi';
 import { formatUnits } from 'viem';
 import { useX402WithdrawableBalance } from '../hooks/useX402Deposit';
 
-interface WalletBarProps {
-  onViewResults?: () => void;
-}
+interface WalletBarProps {}
 
-// Component to track a single stream's rate
-const StreamRateTracker: React.FC<{
+// Component to track a single stream's accumulated balance (from withdraw modal data)
+const StreamBalanceTracker: React.FC<{
   streamId: number;
-  onRateUpdate: (id: number, rate: bigint, closed: boolean) => void;
-}> = ({ streamId, onRateUpdate }) => {
-  const { streamData } = useX402WithdrawableBalance(streamId);
+  onBalanceUpdate: (id: number, balance: bigint, closed: boolean) => void;
+}> = ({ streamId, onBalanceUpdate }) => {
+  const { owedAmount, streamData } = useX402WithdrawableBalance(streamId);
 
   useEffect(() => {
-    if (streamData && Array.isArray(streamData)) {
-      const ratePerSecond = streamData[3] ? BigInt(streamData[3]) : 0n;
-      const isClosed = streamData[8] ? Boolean(streamData[8]) : true;
-      onRateUpdate(streamId, ratePerSecond, isClosed);
+    if (owedAmount !== undefined && owedAmount !== null) {
+      const balance = BigInt(owedAmount);
+      // Check if stream is closed (if streamData available)
+      const isClosed = (streamData && Array.isArray(streamData) && streamData[8]) ? Boolean(streamData[8]) : false;
+      onBalanceUpdate(streamId, balance, isClosed);
     }
-  }, [streamData, streamId, onRateUpdate]);
+  }, [owedAmount, streamData, streamId, onBalanceUpdate]);
 
   return null;
 };
 
-const WalletBar: React.FC<WalletBarProps> = ({ 
-  onViewResults
-}) => {
+const WalletBar: React.FC<WalletBarProps> = () => {
   const { isConnected } = useAccount();
-  const [totalStreamRate, setTotalStreamRate] = useState('0.000000');
+  const [totalBalance, setTotalBalance] = useState('0.00');
   const [streamIds, setStreamIds] = useState<number[]>([]);
-  const [streamRates, setStreamRates] = useState<Map<number, { rate: bigint, closed: boolean }>>(new Map());
+  const [streamBalances, setStreamBalances] = useState<Map<number, { balance: bigint, closed: boolean }>>(new Map());
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Load stream IDs from localStorage
   useEffect(() => {
     const loadStreams = () => {
       const stored = localStorage.getItem('userStreams');
+      
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
@@ -51,47 +50,54 @@ const WalletBar: React.FC<WalletBarProps> = ({
           
           // Clean up localStorage if we found invalid IDs
           if (ids.length !== parsed.length) {
-            console.log('Cleaning invalid stream IDs from localStorage');
             localStorage.setItem('userStreams', JSON.stringify(ids.map(String)));
           }
           
-          setStreamIds(ids);
-          console.log('Loaded stream IDs for aggregation:', ids);
+          if (ids.length > 0) {
+            setStreamIds(ids);
+          }
         } catch (err) {
-          console.error('Error loading streams:', err);
+          console.error('[WalletBar] Error loading streams:', err);
         }
       }
     };
 
     loadStreams();
-    const interval = setInterval(loadStreams, 2000);
+    const interval = setInterval(loadStreams, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  // Callback to update individual stream rates
-  const handleRateUpdate = (id: number, rate: bigint, closed: boolean) => {
-    setStreamRates(prev => {
+  // Callback to update individual stream balances (memoized to prevent re-renders)
+  const handleBalanceUpdate = useCallback((id: number, balance: bigint, closed: boolean) => {
+    setStreamBalances(prev => {
       const newMap = new Map(prev);
-      newMap.set(id, { rate, closed });
+      newMap.set(id, { balance, closed });
       return newMap;
     });
-  };
+  }, []);
 
-  // Calculate total from fetched rates
+  // Calculate total accumulated balance from all streams (same as withdraw modal)
   useEffect(() => {
-    let totalRate = 0n;
+    let total = 0n;
     
-    streamRates.forEach(({ rate, closed }) => {
-      if (!closed && rate > 0n) {
-        totalRate += rate;
+    streamBalances.forEach(({ balance, closed }) => {
+      if (!closed) {
+        total += balance;
       }
     });
 
-    const formatted = formatUnits(totalRate, 6);
-    const displayRate = parseFloat(formatted).toFixed(6);
-    console.log('Total stream rate:', displayRate, 'USDC/s from', streamRates.size, 'streams');
-    setTotalStreamRate(displayRate);
-  }, [streamRates]);
+    const formatted = formatUnits(total, 6);
+    const display = parseFloat(formatted).toFixed(6);
+    const oldBalance = totalBalance;
+    
+    // Trigger blink effect when balance updates
+    if (display !== oldBalance && parseFloat(display) > 0) {
+      setIsUpdating(true);
+      setTimeout(() => setIsUpdating(false), 600);
+    }
+    
+    setTotalBalance(display);
+  }, [streamBalances, totalBalance]);
   return (
     <div className="h-12 bg-black/80 backdrop-blur-md border-b border-white/10 flex items-center px-6 justify-between z-50 sticky top-0">
         <div className="flex items-center gap-4">
@@ -101,32 +107,39 @@ const WalletBar: React.FC<WalletBarProps> = ({
         </div>
 
         <div className="flex items-center gap-4 font-mono text-xs">
-            {/* Invisible stream rate trackers */}
+            {/* Invisible stream balance trackers */}
             {streamIds.map(id => (
-              <StreamRateTracker key={id} streamId={id} onRateUpdate={handleRateUpdate} />
+              <StreamBalanceTracker key={id} streamId={id} onBalanceUpdate={handleBalanceUpdate} />
             ))}
             
-            <div className={`flex items-center gap-2 px-3 py-1 rounded border transition-all ${
-              parseFloat(totalStreamRate) > 0
-                ? 'bg-neon-green/10 border-neon-green/30'
+            <div className={`flex items-center gap-2 px-3 py-1 rounded border transition-all duration-300 ${
+              parseFloat(totalBalance) > 0
+                ? isUpdating
+                  ? 'bg-neon-green/30 border-neon-green/60 shadow-[0_0_20px_rgba(67,255,77,0.4)]'
+                  : 'bg-neon-green/10 border-neon-green/30 shadow-[0_0_10px_rgba(67,255,77,0.2)]'
                 : 'bg-gray-500/10 border-gray-500/30'
             }`}>
-                <TrendingUp size={12} className={parseFloat(totalStreamRate) > 0 ? 'text-neon-green' : 'text-gray-500'} />
-                <span className={parseFloat(totalStreamRate) > 0 ? 'text-neon-green/70' : 'text-gray-500/70'}>x402 STREAM:</span>
-                <span className={`font-bold ${
-                  parseFloat(totalStreamRate) > 0 ? 'text-neon-green' : 'text-gray-500'
-                }`}>{totalStreamRate} USDC/s</span>
+                <TrendingUp 
+                  size={12} 
+                  className={`transition-all duration-300 ${
+                    parseFloat(totalBalance) > 0 
+                      ? isUpdating 
+                        ? 'text-neon-green scale-110' 
+                        : 'text-neon-green' 
+                      : 'text-gray-500'
+                  }`} 
+                />
+                <span className={`transition-all duration-300 ${
+                  parseFloat(totalBalance) > 0 ? 'text-neon-green/70' : 'text-gray-500/70'
+                }`}>x402 STREAMING:</span>
+                <span className={`font-bold transition-all duration-300 ${
+                  parseFloat(totalBalance) > 0 
+                    ? isUpdating 
+                      ? 'text-neon-green scale-105' 
+                      : 'text-neon-green' 
+                    : 'text-gray-500'
+                }`}>{totalBalance} USDC</span>
             </div>
-
-            {onViewResults && (
-                <button
-                    onClick={onViewResults}
-                    className="flex items-center gap-2 bg-[#39ff14]/10 hover:bg-[#39ff14]/20 px-3 py-1 rounded border border-[#39ff14]/30 transition-colors"
-                >
-                    <BarChart3 size={14} className="text-[#39ff14]" />
-                    <span className="text-[#39ff14] font-semibold">Results</span>
-                </button>
-            )}
 
             <WalletConnect />
         </div>

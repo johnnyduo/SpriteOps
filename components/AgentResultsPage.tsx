@@ -133,6 +133,23 @@ export const AgentResultsPage: React.FC<AgentResultsPageProps> = ({
     return sourceAgent;
   };
 
+  // Get specific order/mission from Captain for each agent
+  const getCaptainOrder = (agentId: string) => {
+    const ability = AGENT_ABILITIES[agentId as keyof typeof AGENT_ABILITIES];
+    if (!ability) return null;
+
+    const orders: { [key: string]: string } = {
+      'a1': `"Monitor all major DeFi token prices using ${ability.apis.join(' & ')}. Provide real-time market intelligence on HBAR, ETH, BTC, and SAUCE pairs. Track volume spikes and price movements."`,
+      'a2': `"Analyze market sentiment across news sources using ${ability.apis.join(' & ')}. Process breaking news about Hedera, DeFi, and crypto markets. Score sentiment and detect emerging trends."`,
+      'a3': `"Execute profitable swaps on ${ability.apis[0]} when conditions are favorable. Manage HBAR/SAUCE liquidity, calculate slippage, and monitor DEX pools. Maximum trade: ${ability.maxTradeSize}."`,
+      'a4': `"Assess portfolio risk using ${ability.apis.join(' & ')}. Calculate volatility metrics, position sizing, and black swan probability. Protect against excessive exposure."`,
+      'a5': `"Generate AI-powered predictions using ${ability.apis.join(' & ')}. Analyze chart patterns, forecast price movements, and identify support/resistance levels for key assets."`,
+      'a6': `"Monitor breaking news and whale movements using ${ability.apis.join(' & ')}. Alert on major transactions, detect market-moving events, and track real-time developments."`
+    };
+
+    return orders[agentId] || null;
+  };
+
   const calculateMetrics = (agentResults: AgentTaskResult[]) => {
     const successCount = agentResults.filter(r => r.status === 'success').length;
     const estimatedCost = agentResults.length * 0.001; // Estimate $0.001 per task
@@ -556,9 +573,12 @@ export const AgentResultsPage: React.FC<AgentResultsPageProps> = ({
                                 </span>
                               ))}
                             </div>
-                            <div className="text-xs text-gray-400 mt-1 font-mono">
-                              Executing specialized tasks based on {agent.name}'s expertise
-                            </div>
+                            {getCaptainOrder(agent.id) && (
+                              <div className="text-xs text-blue-300 mt-2 font-mono italic bg-blue-500/5 p-2 rounded border-l-2 border-blue-500">
+                                <div className="text-blue-400 font-bold mb-1">📜 MISSION ORDER:</div>
+                                {getCaptainOrder(agent.id)}
+                              </div>
+                            )}
                           </div>
                         )}
                         {isAgentCaptain && connections.outgoing.length > 0 && (

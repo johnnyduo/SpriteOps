@@ -2,6 +2,7 @@ import React from 'react';
 import { AgentMetadata } from '../types';
 import { X, Copy, Terminal, Zap } from 'lucide-react';
 import { AGENT_ABILITIES } from '../constants';
+import { useAccount } from 'wagmi';
 
 interface AgentDetailPanelProps {
   agent: AgentMetadata | null;
@@ -9,6 +10,8 @@ interface AgentDetailPanelProps {
 }
 
 const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({ agent, onClose }) => {
+  const { address } = useAccount();
+  
   if (!agent) return null;
 
   return (
@@ -92,10 +95,38 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({ agent, onClose }) =
 
             <div className="space-y-2">
                 <label className="text-xs text-gray-500 font-mono uppercase">On-Chain Identity</label>
-                <div className="flex items-center gap-2 bg-black p-2 rounded border border-white/10 font-mono text-xs text-gray-400 break-all">
-                    {agent.walletAddress}
-                    <Copy size={12} className="ml-auto cursor-pointer hover:text-white" />
+                <div 
+                  className="flex items-center gap-2 bg-black p-2 rounded border border-white/10 font-mono text-xs break-all cursor-pointer hover:bg-white/5 transition-colors group"
+                  onClick={() => {
+                    // Get agent address from localStorage
+                    const storedAddresses = localStorage.getItem('agentAddresses');
+                    const addresses = storedAddresses ? JSON.parse(storedAddresses) : {};
+                    const agentAddress = addresses[agent.id] || `0x650665fdf08EeE72e84953D5a99AbC8196C56E77-${agent.tokenId}`;
+                    navigator.clipboard.writeText(agentAddress);
+                  }}
+                  title="Click to copy agent identity address"
+                >
+                    <div className="flex-1">
+                      <div className="text-gray-500 text-[10px] mb-0.5">Agent Address</div>
+                      <div className="text-neon-green">
+                        {(() => {
+                          const storedAddresses = localStorage.getItem('agentAddresses');
+                          const addresses = storedAddresses ? JSON.parse(storedAddresses) : {};
+                          const agentAddress = addresses[agent.id] || `0x650665fdf08EeE72e84953D5a99AbC8196C56E77-${agent.tokenId}`;
+                          return agentAddress.length > 30 
+                            ? `${agentAddress.slice(0, 10)}...${agentAddress.slice(-8)}`
+                            : agentAddress;
+                        })()}
+                      </div>
+                      <div className="text-gray-400 mt-0.5 text-[10px]">Token #{agent.tokenId}</div>
+                    </div>
+                    <Copy size={12} className="ml-auto text-neon-green opacity-50 group-hover:opacity-100 transition-opacity" />
                 </div>
+                {address && (
+                  <div className="text-[10px] text-gray-500 font-mono mt-1 px-2">
+                    Owner: {address.slice(0, 6)}...{address.slice(-4)}
+                  </div>
+                )}
             </div>
 
             <div className="space-y-2 pt-4 border-t border-white/10">
