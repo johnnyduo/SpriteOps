@@ -1368,7 +1368,7 @@ const App: React.FC = () => {
           addLog('A2A', `[${agent.name}] 🦊 Arbitrage scan: ${pair}`);
           
           const opportunity = (Math.random() * 3 + 0.5).toFixed(2);
-          const txHash = abilities.fallbackTxHash || `0x${Math.random().toString(16).slice(2, 66)}`;
+          const txHash = (abilities as any).fallbackTxHash || `0x${Math.random().toString(16).slice(2, 66)}`;
           const txUrl = `https://hashscan.io/testnet/transaction/${txHash}`;
           
           addTaskResult({
@@ -1393,7 +1393,7 @@ const App: React.FC = () => {
           agentStatusManager.setStatus(agentId, `Monitoring ${pair} liquidity`);
           addLog('A2A', `[${agent.name}] 🦊 Analyzing ${pair} pool depth`);
           
-          const txHash = abilities.fallbackTxHash || `0x${Math.random().toString(16).slice(2, 66)}`;
+          const txHash = (abilities as any).fallbackTxHash || `0x${Math.random().toString(16).slice(2, 66)}`;
           const txUrl = `https://hashscan.io/testnet/transaction/${txHash}`;
           
           addTaskResult({
@@ -2135,7 +2135,7 @@ const App: React.FC = () => {
             .filter((item): item is {agentId: string, tokenId: bigint} => item !== null)
         }
         onDepositSuccess={(streamId) => {
-          if (streamId && streamId > 0) {
+          if (streamId && Number(streamId) > 0) {
             // Store stream ID in localStorage for WalletBar aggregation
             const stored = localStorage.getItem('userStreams');
             let existingIds: string[] = [];
