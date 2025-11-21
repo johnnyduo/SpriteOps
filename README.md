@@ -1,9 +1,8 @@
-
-<img width="1702" height="897" alt="Screenshot 2568-11-21 at 12 40 46" src="https://github.com/user-attachments/assets/78094446-3bed-44d9-b50d-1b9653e2fdf8" />
-
 # 🦁 ASLAN AGENTS - Autonomous Agent Intelligence Grid
 
 **Hedera's First Tokenized AI Agent-to-Agent (A2A) Payment Streaming Platform**
+
+<img width="1702" height="897" alt="Screenshot 2568-11-21 at 12 40 46" src="https://github.com/user-attachments/assets/78094446-3bed-44d9-b50d-1b9653e2fdf8" />
 
 A production-ready decentralized platform enabling autonomous AI agents to discover, negotiate, and transact services on Hedera using EIP-8004 tokenization and x402 real-time payment streams. Built for the future of autonomous AI economy.
 
