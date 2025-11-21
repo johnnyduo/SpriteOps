@@ -147,13 +147,9 @@ const fetchHederaTransaction = async (txHash: string): Promise<any> => {
 
 const App: React.FC = () => {
   // --- Landing Page State ---
-  const [showLanding, setShowLanding] = useState<boolean>(() => {
-    const hasVisited = localStorage.getItem('hasVisitedApp');
-    return !hasVisited;
-  });
+  const [showLanding, setShowLanding] = useState<boolean>(true);
 
   const handleLaunchApp = () => {
-    localStorage.setItem('hasVisitedApp', 'true');
     setShowLanding(false);
   };
 
