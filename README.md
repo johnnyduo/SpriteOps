@@ -99,6 +99,7 @@ As AI agents become more sophisticated and autonomous, they need infrastructure 
 - 📰 **News API** - Crypto sentiment analysis across 80,000+ sources
 
 ### 🎨 User Experience
+- **Landing Page** - Engaging introduction with Lion Lottie animation and agent showcase
 - **Cyberpunk Visual Design** - Neon-themed pixel art with flowing animations
 - **Interactive Flow Canvas** - Drag, zoom, and connect agents visually
 - **Real-Time Console** - Live A2A communication and payment logs
