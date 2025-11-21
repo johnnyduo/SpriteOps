@@ -2,13 +2,13 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# 🎮 SPRITEOPS - Autonomous Agent Intelligence Grid
+# 🦁 ASLAN AGENTS - Autonomous Agent Intelligence Grid
 
 **Hedera's First Tokenized AI Agent-to-Agent (A2A) Payment Streaming Platform**
 
 A production-ready decentralized platform enabling autonomous AI agents to discover, negotiate, and transact services on Hedera using EIP-8004 tokenization and x402 real-time payment streams. Built for the future of autonomous AI economy.
 
-🔗 **Live Demo**: [SpriteOps on Vercel](https://sprites-ops.vercel.app)  
+🔗 **Live Demo**: [Aslan Agents on Vercel](https://aslan-agents.vercel.app)  
 🎥 **Video Demo**: [Coming Soon]  
 📚 **Documentation**: [Full Technical Docs](./docs)
 
@@ -32,7 +32,7 @@ As AI agents become more sophisticated and autonomous, they need infrastructure 
 
 ## 💡 Our Solution
 
-**SpriteOps** creates the first complete autonomous agent economy infrastructure on Hedera:
+**Aslan Agents** creates the first complete autonomous agent economy infrastructure on Hedera:
 
 1. **EIP-8004 Tokenized Agents**: Each AI agent is minted as an NFT with capabilities, trust scores, and service fees
 2. **x402 Payment Streaming**: Real-time micropayment streams with spending caps and auto-settlement
@@ -244,11 +244,11 @@ Gemini AI        →  Technical Signal →  Stream Payment
 
 ```bash
 # Clone repository
-git clone https://github.com/johnnyduo/SpriteOps.git
-cd SpriteOps
+git clone https://github.com/johnnyduo/AslanAgents.git
+cd AslanAgents
 
 # Install dependencies
-npm install
+yarn install
 
 # Configure environment variables
 cp .env.local.example .env.local
@@ -425,7 +425,7 @@ Based on research with 50+ Web3 developers:
 
 ### Competitive Advantage
 
-| Feature | SpriteOps | Fetch.ai | AutoGPT | SingularityNet |
+| Feature | Aslan Agents | Fetch.ai | AutoGPT | SingularityNet |
 |---------|-----------|----------|---------|----------------|
 | **On-Chain Agents** | ✅ EIP-8004 NFT | ❌ Off-chain | ❌ Off-chain | ✅ Custom chain |
 | **Micro-Payments** | ✅ x402 streams | ❌ Batch only | ❌ None | ✅ AGI token |
@@ -598,7 +598,7 @@ SauceSwap       →     DEX Activity   →      Swap Execution
 ## 📁 Project Structure
 
 ```
-SpriteOps/
+AslanAgents/
 ├── 📱 Frontend
 │   ├── App.tsx                      # Main app with agent orchestration
 │   ├── components/
@@ -761,7 +761,7 @@ npm run dev
 ### Need Help?
 
 - 📖 Check `/docs` folder for detailed guides
-- 💬 Open GitHub issue: [github.com/johnnyduo/SpriteOps/issues](https://github.com/johnnyduo/SpriteOps/issues)
+- 💬 Open GitHub issue: [github.com/johnnyduo/AslanAgents/issues](https://github.com/johnnyduo/AslanAgents/issues)
 - 📧 Email: [your-email]
 - 🐦 Twitter: [@YourHandle]
 
@@ -786,7 +786,7 @@ vercel
 
 ```bash
 # Build production bundle
-npm run build
+yarn build
 
 # Serve static files (dist/)
 npx serve dist -p 3000
@@ -802,7 +802,7 @@ Remember to set all `VITE_*` environment variables in your hosting platform's da
 **MIT License** - Free for commercial and personal use
 
 ```
-Copyright (c) 2024 SpriteOps Team
+Copyright (c) 2024 Aslan Agents Team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -816,7 +816,7 @@ See [LICENSE](./LICENSE) for full text.
 ## 🔗 Links & Resources
 
 ### Live Application
-- 🌐 **Demo**: https://sprites-ops.vercel.app
+- 🌐 **Demo**: https://aslan-agents.vercel.app
 - 📹 **Video**: [YouTube Demo](https://youtube.com/watch?v=...)
 - 📊 **Pitch Deck**: [Google Slides](https://docs.google.com/presentation/d/...)
 
@@ -862,6 +862,6 @@ Built with ❤️ for the Hedera Hackathon 2024
 
 **⭐ Star us on GitHub if you find this project helpful!**
 
-[Live Demo](https://sprites-ops.vercel.app) • [Documentation](./docs) • [Report Bug](https://github.com/johnnyduo/SpriteOps/issues) • [Request Feature](https://github.com/johnnyduo/SpriteOps/issues)
+[Live Demo](https://aslan-agents.vercel.app) • [Documentation](./docs) • [Report Bug](https://github.com/johnnyduo/AslanAgents/issues) • [Request Feature](https://github.com/johnnyduo/AslanAgents/issues)
 
 </div>

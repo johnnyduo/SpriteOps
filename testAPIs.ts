@@ -1,17 +1,17 @@
-// API Testing Utility for SPRITEOPS
+// API Testing Utility for ASLAN AGENTS
 // Use this to verify your API keys are working correctly
 
 import { geminiService, cryptoService, newsService, hederaService, orchestrator } from './services/api';
 
 export const testAPIs = async () => {
-  console.log('🧪 SPRITEOPS API Testing Suite\n');
+  console.log('🧪 ASLAN AGENTS API Testing Suite\n');
   console.log('═══════════════════════════════════════\n');
 
   // Test Gemini AI
   console.log('1️⃣ Testing Gemini AI API...');
   try {
     const geminiResult = await geminiService.chat({
-      prompt: 'Say "Hello from SPRITEOPS!" in one sentence.',
+      prompt: 'Say "Hello from ASLAN AGENTS!" in one sentence.',
       temperature: 0.7
     });
     console.log('✅ Gemini AI:', geminiResult.text);

@@ -24,7 +24,7 @@ export const useMintAgent = () => {
     if (!address) throw new Error('Wallet not connected');
     
     const metadataURI = `ipfs://agent/${metadata.name.toLowerCase()}`;
-    const apiURI = `https://api.spriteops.io/agent/${metadata.name.toLowerCase()}`;
+    const apiURI = `https://api.aslan-agents.io/agent/${metadata.name.toLowerCase()}`;
     const fee = parseUnits('0.1', 6); // 0.1 USDC per use
     const feeModel = 0; // PerUse
     

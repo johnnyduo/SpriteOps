@@ -27,7 +27,7 @@ contract EIP8004Agent is ERC721, AccessControl, ReentrancyGuard, IEIP8004 {
         _;
     }
     
-    constructor() ERC721("SpriteOps Agent", "AGENT") {
+    constructor() ERC721("Aslan Agent", "AGENT") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         _nextAgentId = 1; // Start from ID 1

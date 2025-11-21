@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# SPRITEOPS Quick Setup Script
+# ASLAN AGENTS Quick Setup Script
 # This script helps you set up the project quickly
 
-echo "🚀 SPRITEOPS Quick Setup"
+echo "🦁 ASLAN AGENTS Quick Setup"
 echo "========================"
 echo ""
 
@@ -44,7 +44,7 @@ if [ -d "node_modules" ]; then
     echo "✅ Dependencies already installed"
 else
     echo "📦 Installing dependencies..."
-    npm install
+    yarn install
     if [ $? -eq 0 ]; then
         echo "✅ Dependencies installed successfully"
     else

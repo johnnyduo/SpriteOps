@@ -1,4 +1,4 @@
-// API Service Layer for SPRITEOPS
+// API Service Layer for ASLAN AGENTS
 // Integrates: Gemini AI, TwelveData, News API, and Hedera Mirror Node
 
 import { GoogleGenAI } from "@google/genai";
@@ -23,7 +23,7 @@ interface CacheEntry<T> {
 }
 
 class SmartCache {
-  private prefix = 'spriteops_cache_';
+  private prefix = 'aslan_cache_';
 
   set<T>(key: string, data: T, ttlSeconds: number = 300): void {
     try {
@@ -1023,10 +1023,10 @@ export const apiUtils = {
 
   // Get cache stats
   getCacheStats() {
-    const keys = Object.keys(localStorage).filter(k => k.startsWith('spriteops_cache_'));
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('aslan_cache_'));
     return {
       totalEntries: keys.length,
-      keys: keys.map(k => k.replace('spriteops_cache_', ''))
+      keys: keys.map(k => k.replace('aslan_cache_', ''))
     };
   },
 
@@ -1377,7 +1377,7 @@ if (typeof window !== 'undefined') {
   (window as any).hederaSwapTracker = hederaSwapTracker;
   
   // Helpful console commands
-  console.log('%c🤖 SPRITEOPS API UTILITIES', 'color: #39ff14; font-weight: bold; font-size: 14px;');
+  console.log('%c🦁 ASLAN AGENTS API UTILITIES', 'color: #39ff14; font-weight: bold; font-size: 14px;');
   console.log('%cUse these commands in console:', 'color: #39ff14;');
   console.log('  apiUtils.getRateLimitStatus() - Check API rate limits');
   console.log('  apiUtils.getCacheStats() - View cache statistics');

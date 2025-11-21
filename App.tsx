@@ -202,7 +202,7 @@ const App: React.FC = () => {
   // --- Initialization: Check API Status ---
   useEffect(() => {
     const checkAPIs = async () => {
-      addLog('SYSTEM', '🚀 SPRITEOPS Grid Initializing...');
+      addLog('SYSTEM', '🚀 ASLAN AGENTS Grid Initializing...');
       addLog('SYSTEM', '💡 TIP: Run testAPIs() in browser console to verify all API connections');
       
       // Quick API availability check

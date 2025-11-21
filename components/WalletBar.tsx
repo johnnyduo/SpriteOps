@@ -107,7 +107,7 @@ const WalletBar: React.FC<WalletBarProps> = () => {
     <div className="h-12 bg-black/80 backdrop-blur-md border-b border-white/10 flex items-center px-6 justify-between z-50 sticky top-0">
         <div className="flex items-center gap-4">
             <h1 className="text-neon-green font-bold font-mono tracking-wider flex items-center gap-2">
-                <Layers size={18} /> SPRITEOPS <span className="text-white/40 text-xs font-normal">v1.0.4-beta</span>
+                <Layers size={18} /> ASLAN AGENTS <span className="text-white/40 text-xs font-normal">v1.0.4-beta</span>
             </h1>
         </div>
 

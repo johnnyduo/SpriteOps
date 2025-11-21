@@ -1,8 +1,8 @@
-# SpriteOps Smart Contracts
+# Aslan Agents Smart Contracts
 
 ## Architecture Overview
 
-The SpriteOps system consists of two core smart contracts that work together to enable tokenized AI agents with real-time payment streaming.
+The Aslan Agents system consists of two core smart contracts that work together to enable tokenized AI agents with real-time payment streaming.
 
 ### 1. EIP-8004 Tokenized Agent Contract
 

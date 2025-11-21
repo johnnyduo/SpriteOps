@@ -269,6 +269,6 @@ export const AGENT_ABILITIES = {
 };
 
 export const INITIAL_LOGS: any[] = [
-  { id: 'sys-1', timestamp: '10:00:00', type: 'SYSTEM', content: 'SpriteOps Grid Initialized. EIP-8004 Registry Loaded.' },
+  { id: 'sys-1', timestamp: '10:00:00', type: 'SYSTEM', content: 'Aslan Agents Grid Initialized. EIP-8004 Registry Loaded.' },
   { id: 'sys-2', timestamp: '10:00:01', type: 'SYSTEM', content: 'x402 Payment Engine Ready.' },
 ];
