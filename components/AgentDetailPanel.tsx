@@ -8,9 +8,10 @@ import LottieAvatar from './LottieAvatar';
 interface AgentDetailPanelProps {
   agent: AgentMetadata | null;
   onClose: () => void;
+  onChainTokenId?: number; // Real on-chain token ID from blockchain
 }
 
-const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({ agent, onClose }) => {
+const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({ agent, onClose, onChainTokenId }) => {
   const { address } = useAccount();
   
   if (!agent) return null;
@@ -63,7 +64,12 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({ agent, onClose }) =
             <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white/5 p-3 rounded border border-white/10">
                     <label className="text-[10px] text-gray-500 font-mono uppercase block mb-1">Token ID</label>
-                    <span className="text-lg font-mono text-white">#{agent.tokenId}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-lg font-mono text-white">#{onChainTokenId || agent.tokenId}</span>
+                        {!onChainTokenId && (
+                            <span className="text-[9px] text-yellow-500 font-mono">(Not Minted)</span>
+                        )}
+                    </div>
                 </div>
                 <div className="bg-white/5 p-3 rounded border border-white/10">
                     <label className="text-[10px] text-gray-500 font-mono uppercase block mb-1">Trust Score</label>
@@ -111,7 +117,7 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({ agent, onClose }) =
                     // Get agent address from localStorage
                     const storedAddresses = localStorage.getItem('agentAddresses');
                     const addresses = storedAddresses ? JSON.parse(storedAddresses) : {};
-                    const agentAddress = addresses[agent.id] || `0x650665fdf08EeE72e84953D5a99AbC8196C56E77-${agent.tokenId}`;
+                    const agentAddress = addresses[agent.id] || `0x650665fdf08EeE72e84953D5a99AbC8196C56E77-${onChainTokenId || agent.tokenId}`;
                     navigator.clipboard.writeText(agentAddress);
                   }}
                   title="Click to copy agent identity address"
@@ -122,13 +128,13 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({ agent, onClose }) =
                         {(() => {
                           const storedAddresses = localStorage.getItem('agentAddresses');
                           const addresses = storedAddresses ? JSON.parse(storedAddresses) : {};
-                          const agentAddress = addresses[agent.id] || `0x650665fdf08EeE72e84953D5a99AbC8196C56E77-${agent.tokenId}`;
+                          const agentAddress = addresses[agent.id] || `0x650665fdf08EeE72e84953D5a99AbC8196C56E77-${onChainTokenId || agent.tokenId}`;
                           return agentAddress.length > 30 
                             ? `${agentAddress.slice(0, 10)}...${agentAddress.slice(-8)}`
                             : agentAddress;
                         })()}
                       </div>
-                      <div className="text-gray-400 mt-0.5 text-[10px]">Token #{agent.tokenId}</div>
+                      <div className="text-gray-400 mt-0.5 text-[10px]">Token #{onChainTokenId || agent.tokenId}</div>
                     </div>
                     <Copy size={12} className="ml-auto text-neon-green opacity-50 group-hover:opacity-100 transition-opacity" />
                 </div>

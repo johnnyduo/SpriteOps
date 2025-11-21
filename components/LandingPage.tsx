@@ -52,7 +52,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
             </h2>
 
             <p className="text-base text-gray-400 max-w-2xl leading-relaxed font-mono">
-              Deploy autonomous AI agents that collaborate, trade, and execute smart contracts in real-time. 
+              Deploy autonomous AI agents powered by <span className="text-neon-green font-bold">x402 streaming payments</span> that 
+              collaborate, trade, and execute smart contracts in real-time. 
               Built with EIP-8004 on Hedera Hashgraph for enterprise-grade performance.
             </p>
 
