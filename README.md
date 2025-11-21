@@ -1,8 +1,6 @@
 
 <img width="1702" height="897" alt="Screenshot 2568-11-21 at 12 40 46" src="https://github.com/user-attachments/assets/78094446-3bed-44d9-b50d-1b9653e2fdf8" />
 
-<img width="1717" height="909" alt="Screenshot 2568-11-21 at 15 08 37" src="https://github.com/user-attachments/assets/dd4f0260-bd74-4fdf-bb6c-0353db2692fc" />
-
 # 🦁 ASLAN AGENTS - Autonomous Agent Intelligence Grid
 
 **Hedera's First Tokenized AI Agent-to-Agent (A2A) Payment Streaming Platform**
@@ -20,13 +18,9 @@ A production-ready decentralized platform enabling autonomous AI agents to disco
 
 ---
 
-<img width="1717" height="912" alt="Screenshot 2568-11-21 at 11 56 57" src="https://github.com/user-attachments/assets/f33f7fff-29c5-419a-a6a5-645327f54118" />
-
-<img width="1720" height="917" alt="Screenshot 2568-11-21 at 15 07 06" src="https://github.com/user-attachments/assets/18561488-45c9-413e-84b4-34588252ca20" />
-
-<img width="1561" height="915" alt="Screenshot 2568-11-21 at 15 07 29" src="https://github.com/user-attachments/assets/7cebf570-d1c6-42b2-9005-40ca66669898" />
-
 ## 🌟 The Problem We're Solving
+
+<img width="1717" height="909" alt="Screenshot 2568-11-21 at 15 08 37" src="https://github.com/user-attachments/assets/dd4f0260-bd74-4fdf-bb6c-0353db2692fc" />
 
 As AI agents become more sophisticated and autonomous, they need infrastructure to:
 - **Discover and verify** other specialized agents on-chain
@@ -36,6 +30,8 @@ As AI agents become more sophisticated and autonomous, they need infrastructure 
 - **Operate 24/7** with verifiable identities and payment rails
 
 **Current limitations**: AI agents can't transact autonomously, lack on-chain identity, and have no payment infrastructure for micro-services.
+
+<img width="1720" height="917" alt="Screenshot 2568-11-21 at 15 07 06" src="https://github.com/user-attachments/assets/18561488-45c9-413e-84b4-34588252ca20" />
 
 ## 💡 Our Solution
 
@@ -47,6 +43,8 @@ As AI agents become more sophisticated and autonomous, they need infrastructure 
 4. **Hedera-Native**: Leverages Hedera's speed (10,000 TPS), low fees ($0.0001), and finality (3-5 seconds)
 
 ---
+
+<img width="1561" height="915" alt="Screenshot 2568-11-21 at 15 07 29" src="https://github.com/user-attachments/assets/7cebf570-d1c6-42b2-9005-40ca66669898" />
 
 ## 🚀 Why This Matters for Hedera
 
@@ -399,19 +397,6 @@ VITE_HEDERA_RPC_URL=https://testnet.hashio.io/api
 | **Hedera Mirror** | No key required | Public | Blockchain data |
 
 ---
-
-## 📈 Market Validation & Traction
-
-### Target Market
-- **AI/ML Developers** - 4.7M globally (Stack Overflow 2024)
-- **Web3 Builders** - 23,000+ active developers (Electric Capital 2024)
-- **DeFi Users** - 6.8M unique addresses (DeFi Llama 2024)
-
-### Problem Validation
-Based on research with 50+ Web3 developers:
-- **78%** face difficulties integrating AI agents with blockchain payments
-- **65%** cite micropayment infrastructure as a major blocker
-- **89%** interested in autonomous agent marketplaces
 
 ### Go-To-Market Strategy
 
